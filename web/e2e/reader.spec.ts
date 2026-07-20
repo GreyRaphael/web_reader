@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 async function login(page: Page): Promise<void> {
@@ -35,6 +36,20 @@ test('reads enhanced Markdown and persists the theme', async ({ page }) => {
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
   }
+})
+
+test('meets the automated WCAG A and AA baseline', async ({ page }) => {
+  await page.goto('/')
+  const loginScan = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+  expect(loginScan.violations).toEqual([])
+
+  await login(page)
+  await openChapter(page)
+  const readerScan = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .exclude('.mermaid-output')
+    .analyze()
+  expect(readerScan.violations).toEqual([])
 })
 
 test('renders the Mermaid diagram gallery', async ({ page }) => {

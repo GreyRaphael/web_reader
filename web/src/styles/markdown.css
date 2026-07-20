@@ -206,6 +206,16 @@
   text-transform: uppercase;
 }
 
+:root[data-theme='day'] .markdown-body .hljs-keyword,
+:root[data-theme='day'] .markdown-body .hljs-selector-tag,
+:root[data-theme='day'] .markdown-body .hljs-literal {
+  color: #a52a3a;
+}
+
+:root[data-theme='day'] .markdown-body .hljs-built_in {
+  color: #8a3b00;
+}
+
 :root[data-theme='night'] .hljs-comment,
 :root[data-theme='night'] .hljs-quote {
   color: #89928b;

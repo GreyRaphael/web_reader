@@ -32,6 +32,10 @@ func newTestServer(t *testing.T) *Server {
 	if err := os.WriteFile(filepath.Join(root, "page.html"), []byte("<script>alert(1)</script>"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	largeImage := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0xab}, (2<<20)-8)...)
+	if err := os.WriteFile(filepath.Join(root, "large-image.png"), largeImage, 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	files, err := workspacefs.New(root, 1<<20)
 	if err != nil {
@@ -110,6 +114,17 @@ func TestProtectedFilesystemFlow(t *testing.T) {
 	}
 	if rangeResponse.Header().Get("Accept-Ranges") != "bytes" || rangeResponse.Header().Get("ETag") == "" {
 		t.Fatalf("range headers = %#v", rangeResponse.Header())
+	}
+
+	largeRequest := authenticatedRequest(http.MethodGet, "/api/fs/raw?path=large-image.png", cookie)
+	largeRequest.Header.Set("Range", "bytes=1048576-1048591")
+	largeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(largeResponse, largeRequest)
+	if largeResponse.Code != http.StatusPartialContent || largeResponse.Body.Len() != 16 {
+		t.Fatalf("large image range status = %d, bytes = %d", largeResponse.Code, largeResponse.Body.Len())
+	}
+	if largeResponse.Header().Get("Content-Type") != "image/png" || !strings.HasPrefix(largeResponse.Header().Get("Content-Disposition"), "inline") {
+		t.Fatalf("large image headers = %#v", largeResponse.Header())
 	}
 
 	imageResponse := httptest.NewRecorder()

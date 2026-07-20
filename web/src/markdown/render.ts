@@ -66,7 +66,7 @@ function taskListPlugin(md: MarkdownIt): void {
       inline.content = inline.content.slice(match[0].length)
       firstChild.content = firstChild.content.slice(match[0].length)
       const checkbox = new state.Token('html_inline', '', 0)
-      checkbox.content = `<span class="task-checkbox" role="checkbox" aria-checked="${checked}">${checked ? '✓' : ''}</span>`
+      checkbox.content = `<span class="task-checkbox" role="checkbox" aria-label="${checked ? '已完成' : '未完成'}" aria-checked="${checked}">${checked ? '✓' : ''}</span>`
       inline.children?.unshift(checkbox)
       listItem.attrJoin('class', 'task-list-item')
     }

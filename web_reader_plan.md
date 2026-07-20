@@ -598,14 +598,14 @@ raw 文件接口必须防止 workspace 中的 HTML/JS 以同源页面执行：
 - [x] 编写 Go handler 集成测试，使用临时 workspace。
 - [x] 编写 Vue 组件和 composable 单元测试。
 - [x] 编写 Playwright 桌面 Chrome 和移动端 Chrome/WebKit 场景。
-- [ ] 测试大目录、长文本、大图片、多个 Mermaid 图和快速切换文件。
-- [ ] 检查键盘导航、焦点、ARIA label、颜色对比度。
+- [x] 测试大目录、长文本、大图片、多个 Mermaid 图和快速切换文件。
+- [x] 检查键盘导航、焦点、ARIA label、颜色对比度。
 - [x] 检查前端 bundle；KaTeX、Mermaid 按需异步加载。
 - [x] 编写 README：配置、密码哈希、构建、启动和安全说明。
 - [x] 提供 systemd unit、环境文件示例和可选 Dockerfile。
 - [ ] 在目标 Linux 服务器进行 8848 端口实机验收。
 
-> 本地验收记录（2026-07-20）：桌面 Chromium 与 390×844 移动 Chromium 场景通过；12 类 Mermaid 图表画廊全部生成 SVG。移动 WebKit 场景已配置，但当前开发机缺少 GTK/GStreamer 等系统库，需在具备系统依赖的 CI 或目标机复验。
+> 本地验收记录（2026-07-20）：桌面 Chromium 与 390×844 移动 Chromium 场景通过，登录页和 Reader 通过自动化 WCAG A/AA 扫描；1000 项目录、约 1 MiB 长文本、2 MiB 图片 Range、快速文件切换竞态均有自动化测试；12 类 Mermaid 图表画廊全部生成 SVG。移动 WebKit 场景已配置，但当前开发机缺少 GTK/GStreamer 等系统库，需在具备系统依赖的 CI 或目标机复验。
 
 完成条件：自动化测试通过，单二进制能在目标服务器启动，PC 和手机完成端到端验收。
 

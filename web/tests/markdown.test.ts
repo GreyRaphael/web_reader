@@ -69,7 +69,9 @@ x^2+y^2
     const checkboxes = root.querySelectorAll('[role="checkbox"]')
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('true')
+    expect(checkboxes[0]?.getAttribute('aria-label')).toBe('已完成')
     expect(checkboxes[1]?.getAttribute('aria-checked')).toBe('false')
+    expect(checkboxes[1]?.getAttribute('aria-label')).toBe('未完成')
   })
 
   it('does not consume trailing text after a block math delimiter', () => {

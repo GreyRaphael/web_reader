@@ -156,8 +156,9 @@ async function openItem(
     selectedItem.value = item
     updateLocation(item.path, historyMode, hash)
     if (isTextPreview(item.previewKind)) {
-      textContent.value = await getTextFile(item.path, previewController.signal)
+      const text = await getTextFile(item.path, previewController.signal)
       if (run !== previewRun) return
+      textContent.value = text
     }
     loadingPreview.value = false
 
