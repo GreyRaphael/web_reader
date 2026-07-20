@@ -42,17 +42,17 @@ build/web-reader
 先安装 Playwright 浏览器：
 
 ```bash
-/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install chromium webkit
+/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install chromium firefox webkit
 make test-e2e
 
-# 安装完整系统依赖后执行包含移动 WebKit 的矩阵
+# 安装完整系统依赖后执行包含桌面 Firefox 和移动 WebKit 的矩阵
 /home/gewei/.local/share/pnpm/bin/pnpm --dir web test:e2e:all
 ```
 
 WebKit 还需要 Playwright 列出的 GTK、GStreamer 等系统库。在 Debian/Ubuntu 上可由具备 sudo 权限的管理员执行：
 
 ```bash
-/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install-deps chromium webkit
+/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install-deps chromium firefox webkit
 ```
 
 ## 创建管理员密码哈希

@@ -324,6 +324,7 @@
   width: max-content;
   min-width: 100%;
   min-height: 48px;
+  font-family: var(--font-sans);
 }
 
 .mermaid-output[aria-busy='true']::before {
@@ -335,9 +336,9 @@
 
 .mermaid-output svg {
   display: block;
-  max-width: none;
   height: auto;
   margin: 0 auto;
+  overflow: visible;
 }
 
 .mermaid-error {

@@ -23,6 +23,8 @@ const rendered = ref<RenderedMarkdown>({ html: '', headings: [] })
 const renderError = ref('')
 const MAX_MERMAID_DIAGRAMS = 20
 const MAX_MERMAID_SOURCE_LENGTH = 50_000
+const MERMAID_FONT_FAMILY =
+  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
 let mermaidRun = 0
 let scrollFrame = 0
@@ -73,6 +75,16 @@ function showMermaidError(diagram: HTMLElement, message: string): void {
   output.textContent = message
 }
 
+function preserveMermaidSize(output: HTMLElement): void {
+  const svg = output.querySelector<SVGSVGElement>('svg')
+  const viewBox = svg?.viewBox.baseVal
+  if (!svg || !viewBox || viewBox.width <= 0 || viewBox.height <= 0) return
+
+  svg.style.width = `${viewBox.width}px`
+  svg.style.height = 'auto'
+  svg.style.maxWidth = 'none'
+}
+
 async function renderMermaidDiagrams(): Promise<void> {
   const run = ++mermaidRun
   const root = article.value
@@ -102,6 +114,8 @@ async function renderMermaidDiagrams(): Promise<void> {
       startOnLoad: false,
       securityLevel: 'strict',
       theme: props.theme === 'night' ? 'dark' : 'default',
+      htmlLabels: false,
+      fontFamily: MERMAID_FONT_FAMILY,
       suppressErrorRendering: true,
     })
 
@@ -119,8 +133,11 @@ async function renderMermaidDiagrams(): Promise<void> {
         if (run !== mermaidRun || !diagram.isConnected) return
         output.innerHTML = DOMPurify.sanitize(result.svg, {
           USE_PROFILES: { svg: true, svgFilters: true },
+          ADD_TAGS: ['style'],
+          ADD_ATTR: ['dominant-baseline'],
           FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'object', 'embed'],
         })
+        preserveMermaidSize(output)
       } catch (error) {
         if (run !== mermaidRun) return
         output.classList.add('mermaid-error')
