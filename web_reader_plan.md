@@ -595,15 +595,17 @@ raw 文件接口必须防止 workspace 中的 HTML/JS 以同源页面执行：
 
 目标：形成可部署、可回归的首个版本。
 
-- [ ] 编写 Go handler 集成测试，使用临时 workspace。
-- [ ] 编写 Vue 组件和 composable 单元测试。
-- [ ] 编写 Playwright 桌面 Chrome 和移动端 Chrome/WebKit 场景。
+- [x] 编写 Go handler 集成测试，使用临时 workspace。
+- [x] 编写 Vue 组件和 composable 单元测试。
+- [x] 编写 Playwright 桌面 Chrome 和移动端 Chrome/WebKit 场景。
 - [ ] 测试大目录、长文本、大图片、多个 Mermaid 图和快速切换文件。
 - [ ] 检查键盘导航、焦点、ARIA label、颜色对比度。
-- [ ] 检查前端 bundle；KaTeX、Mermaid 按需异步加载。
-- [ ] 编写 README：配置、密码哈希、构建、启动和安全说明。
-- [ ] 提供 systemd unit、环境文件示例和可选 Dockerfile。
+- [x] 检查前端 bundle；KaTeX、Mermaid 按需异步加载。
+- [x] 编写 README：配置、密码哈希、构建、启动和安全说明。
+- [x] 提供 systemd unit、环境文件示例和可选 Dockerfile。
 - [ ] 在目标 Linux 服务器进行 8848 端口实机验收。
+
+> 本地验收记录（2026-07-20）：桌面 Chromium 与 390×844 移动 Chromium 场景通过；12 类 Mermaid 图表画廊全部生成 SVG。移动 WebKit 场景已配置，但当前开发机缺少 GTK/GStreamer 等系统库，需在具备系统依赖的 CI 或目标机复验。
 
 完成条件：自动化测试通过，单二进制能在目标服务器启动，PC 和手机完成端到端验收。
 
@@ -746,20 +748,20 @@ pnpm exec playwright test
 
 只有同时满足以下条件才视为首版完成：
 
-- [ ] 可配置 workspace、admin 密码哈希，默认监听 `0.0.0.0:8848`。
-- [ ] 所有文件 API 均受登录保护且无法逃逸 workspace。
-- [ ] 桌面端三栏可用，左右栏可隐藏。
-- [ ] 移动端使用左右抽屉，正文阅读和触控操作顺畅。
-- [ ] 文件树可浏览 workspace 下所有目录和文件。
-- [ ] `.md`、`.txt`、`.log`、常见图片可直接查看。
-- [ ] Markdown 相对图片正确显示。
-- [ ] `$$...$$`、`\(...\)` 公式通过验收。
-- [ ] 代码块和目标 Mermaid 类型通过验收。
-- [ ] 大纲可跳转并随滚动高亮。
-- [ ] 日间/夜间主题完整覆盖 shell 和正文并可持久化。
-- [ ] Go、前端单元测试和关键 Playwright 场景通过。
-- [ ] 构建得到可在目标 Linux 服务器运行的单二进制。
-- [ ] README 和 systemd 部署示例完整，明确 HTTP 安全风险。
+- [x] 可配置 workspace、admin 密码哈希，默认监听 `0.0.0.0:8848`。
+- [x] 所有文件 API 均受登录保护且无法逃逸 workspace。
+- [x] 桌面端三栏可用，左右栏可隐藏。
+- [x] 移动端使用左右抽屉，正文阅读和触控操作顺畅。
+- [x] 文件树可浏览 workspace 下所有目录和文件。
+- [x] `.md`、`.txt`、`.log`、常见图片可直接查看。
+- [x] Markdown 相对图片正确显示。
+- [x] `$$...$$`、`\(...\)` 公式通过验收。
+- [x] 代码块和目标 Mermaid 类型通过验收。
+- [x] 大纲可跳转并随滚动高亮。
+- [x] 日间/夜间主题完整覆盖 shell 和正文并可持久化。
+- [x] Go、前端单元测试和关键 Playwright 场景通过。
+- [x] 构建得到可在目标 Linux 服务器运行的单二进制。
+- [x] README 和 systemd 部署示例完整，明确 HTTP 安全风险。
 
 ## 16. 推荐实施顺序总结
 

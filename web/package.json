@@ -13,7 +13,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --project=desktop-chromium --project=mobile-chromium",
+    "test:e2e:all": "playwright test"
   },
   "dependencies": {
     "dompurify": "^3.2.4",
