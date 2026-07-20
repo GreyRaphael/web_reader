@@ -1,0 +1,4 @@
+Web Reader text preview
+
+This file verifies UTF-8 plain-text rendering.
+中文、空格与长行：abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789

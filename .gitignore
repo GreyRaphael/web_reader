@@ -1,0 +1,22 @@
+# Go build output
+/build/
+/web-reader
+*.exe
+*.test
+*.out
+
+# Frontend dependencies and reports
+/web/node_modules/
+/web/coverage/
+/playwright-report/
+/test-results/
+
+# Generated embedded frontend assets
+/internal/webui/dist/*
+!/internal/webui/dist/index.html
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

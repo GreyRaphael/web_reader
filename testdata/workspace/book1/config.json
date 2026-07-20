@@ -1,0 +1,5 @@
+{
+  "name": "web-reader",
+  "readonly": true,
+  "port": 8848
+}
