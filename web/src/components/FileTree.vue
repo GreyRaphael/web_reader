@@ -55,17 +55,18 @@ onBeforeUnmount(() => controller?.abort())
         type="button"
         title="刷新文件树"
         aria-label="刷新文件树"
+        :disabled="loading"
         @click="refreshTree"
       >
         ↻
       </button>
     </div>
 
-    <div v-if="loading" class="panel-state" role="status">
+    <div v-if="loading && items.length === 0" class="panel-state" role="status">
       <span class="loading-ring small" aria-hidden="true"></span>
       <span>加载文件…</span>
     </div>
-    <div v-else-if="errorMessage" class="panel-state error" role="alert">
+    <div v-else-if="errorMessage && items.length === 0" class="panel-state error" role="alert">
       <span>{{ errorMessage }}</span>
       <button class="secondary-button" type="button" @click="loadRoot()">重试</button>
     </div>

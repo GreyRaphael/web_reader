@@ -34,9 +34,9 @@ x^2+y^2
     expect(root.querySelector('a')?.getAttribute('href') ?? null).toBeNull()
   })
 
-  it('rewrites local images and readable links', () => {
+  it('rewrites local images and workspace file links', () => {
     const result = renderMarkdown(
-      '![Cover](../images/cover.png)\n\n[Next](./next.md#details)',
+      '![Cover](../images/cover.png)\n\n[Next](./next.md#details)\n\n[Config](./config.json)',
       'book/chapters/start.md',
     )
     const root = document.createElement('div')
@@ -45,8 +45,36 @@ x^2+y^2
     expect(root.querySelector('img')?.getAttribute('src')).toBe(
       '/api/fs/raw?path=book%2Fimages%2Fcover.png',
     )
-    expect(root.querySelector('a')?.dataset.readerPath).toBe('book/chapters/next.md')
-    expect(root.querySelector('a')?.dataset.readerHash).toBe('details')
+    const links = root.querySelectorAll('a')
+    expect(links[0]?.dataset.readerPath).toBe('book/chapters/next.md')
+    expect(links[0]?.dataset.readerHash).toBe('details')
+    expect(links[1]?.dataset.readerPath).toBe('book/chapters/config.json')
+  })
+
+  it('removes escaping relative image sources', () => {
+    const result = renderMarkdown('![No escape](../../secret.png)', 'guide/start.md')
+    const root = document.createElement('div')
+    root.innerHTML = result.html
+
+    const image = root.querySelector('img')
+    expect(image?.hasAttribute('src')).toBe(false)
+    expect(image?.dataset.invalidSource).toBe('true')
+  })
+
+  it('renders task list markers as inert checkboxes', () => {
+    const result = renderMarkdown('- [x] Complete\n- [ ] Pending', 'tasks.md')
+    const root = document.createElement('div')
+    root.innerHTML = result.html
+
+    const checkboxes = root.querySelectorAll('[role="checkbox"]')
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('true')
+    expect(checkboxes[1]?.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('does not consume trailing text after a block math delimiter', () => {
+    const result = renderMarkdown('$$x$$ trailing text', 'math.md')
+    expect(result.html).toContain('trailing text')
   })
 
   it('creates stable unique slugs for duplicate titles', () => {

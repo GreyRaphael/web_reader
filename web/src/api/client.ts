@@ -33,7 +33,14 @@ async function request<T>(endpoint: string, init: RequestInit = {}): Promise<T> 
       credentials: 'same-origin',
     })
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw error
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'name' in error &&
+      error.name === 'AbortError'
+    ) {
+      throw error
+    }
     throw new ApiError(error instanceof Error ? error.message : '网络连接失败', 0)
   }
 

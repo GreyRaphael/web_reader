@@ -518,14 +518,14 @@ raw 文件接口必须防止 workspace 中的 HTML/JS 以同源页面执行：
 
 目标：前后端可独立开发，建立可重复的构建流程。
 
-- [ ] 初始化 `go.mod`、Go 目录结构和基础 `main`。
-- [ ] 初始化 Vue 3 + TypeScript + Vite。
-- [ ] 配置 Vite 开发代理：`/api` 指向本地 Go 服务。
-- [ ] 配置生产构建输出到 `internal/webui/dist`。
-- [ ] 添加 `Makefile`：`dev-backend`、`dev-frontend`、`test`、`build`、`clean`。
-- [ ] 添加 `.gitignore`，忽略前端依赖和生成产物。
-- [ ] 添加基础 lint/format：`gofmt`、`go vet`、ESLint、Prettier。
-- [ ] 建立 `testdata/workspace`，包含需求中的目录和示例文件。
+- [x] 初始化 `go.mod`、Go 目录结构和基础 `main`。
+- [x] 初始化 Vue 3 + TypeScript + Vite。
+- [x] 配置 Vite 开发代理：`/api` 指向本地 Go 服务。
+- [x] 配置生产构建输出到 `internal/webui/dist`。
+- [x] 添加 `Makefile`：`dev-backend`、`dev-frontend`、`test`、`build`、`clean`。
+- [x] 添加 `.gitignore`，忽略前端依赖和生成产物。
+- [x] 添加基础 lint/format：`gofmt`、`go vet`、ESLint、Prettier。
+- [x] 建立 `testdata/workspace`，包含需求中的目录和示例文件。
 
 完成条件：前端开发服务器可访问，Go 服务有 `/healthz`，生产命令可以生成单个二进制。
 
@@ -563,14 +563,14 @@ raw 文件接口必须防止 workspace 中的 HTML/JS 以同源页面执行：
 
 目标：先打通移动端优先的浏览和导航。
 
-- [ ] 实现桌面三栏 `AppShell`。
-- [ ] 实现左/右栏显示隐藏及栏宽持久化。
-- [ ] 实现移动端左右抽屉、遮罩、焦点和背景滚动管理。
-- [ ] 实现递归文件树和目录懒加载。
-- [ ] 实现当前项高亮、局部重试和刷新。
-- [ ] 实现 `PreviewPane` 文件类型分发和 loading/error 状态。
-- [ ] 实现文本、图片、通用文件查看器。
-- [ ] 实现主题切换和本地持久化。
+- [x] 实现桌面三栏 `AppShell`。
+- [x] 实现左/右栏显示隐藏及栏宽持久化。
+- [x] 实现移动端左右抽屉、遮罩、焦点和背景滚动管理。
+- [x] 实现递归文件树和目录懒加载。
+- [x] 实现当前项高亮、局部重试和刷新。
+- [x] 实现 `PreviewPane` 文件类型分发和 loading/error 状态。
+- [x] 实现文本、图片、通用文件查看器。
+- [x] 实现主题切换和本地持久化。
 
 完成条件：PC 和手机上均能登录、浏览目录、查看 txt/log/图片并切换主题。
 
@@ -578,16 +578,16 @@ raw 文件接口必须防止 workspace 中的 HTML/JS 以同源页面执行：
 
 目标：满足 Markdown reader 的全部必需能力。
 
-- [ ] 集成 `markdown-it`，禁用原始 HTML。
-- [ ] 实现标题 slug、重复标题处理和大纲提取。
-- [ ] 集成 DOMPurify，并添加 XSS 回归测试。
-- [ ] 实现相对图片 URL 重写。
-- [ ] 实现 Markdown 内部文件链接和锚点跳转。
-- [ ] 集成 highlight.js 和代码块移动端滚动。
-- [ ] 实现数学分隔符插件并集成 KaTeX。
-- [ ] 集成 Mermaid、错误隔离、并发 generation 防护和主题重渲染。
-- [ ] 实现大纲跳转和滚动高亮。
-- [ ] 完善表格、引用、列表、任务列表、图片、代码、公式的主题样式。
+- [x] 集成 `markdown-it`，禁用原始 HTML。
+- [x] 实现标题 slug、重复标题处理和大纲提取。
+- [x] 集成 DOMPurify，并添加 XSS 回归测试。
+- [x] 实现相对图片 URL 重写。
+- [x] 实现 Markdown 内部文件链接和锚点跳转。
+- [x] 集成 highlight.js 和代码块移动端滚动。
+- [x] 实现数学分隔符插件并集成 KaTeX。
+- [x] 集成 Mermaid、错误隔离、并发 generation 防护和主题重渲染。
+- [x] 实现大纲跳转和滚动高亮。
+- [x] 完善表格、引用、列表、任务列表、图片、代码、公式的主题样式。
 
 完成条件：统一验收 Markdown 可正确展示相对图片、指定公式语法、代码和目标 Mermaid 图类型。
 
