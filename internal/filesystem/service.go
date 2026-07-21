@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
@@ -307,6 +308,42 @@ func (s *Service) Rename(relative, newName string) (Item, error) {
 	return s.Info(newLogical)
 }
 
+func (s *Service) Move(relative, targetDir string) (Item, error) {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
+	if cleaned == "" || cleaned == "." || cleaned == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	targetDir = strings.TrimSpace(targetDir)
+	if targetDir == "" {
+		targetDir = "."
+	}
+	full, _, err := s.Resolve(cleaned)
+	if err != nil {
+		return Item{}, err
+	}
+	targetFull, targetLogical, err := s.Resolve(targetDir)
+	if err != nil {
+		return Item{}, err
+	}
+	targetInfo, err := os.Stat(targetFull)
+	if err != nil {
+		return Item{}, err
+	}
+	if !targetInfo.IsDir() {
+		return Item{}, ErrNotDirectory
+	}
+	base := filepath.Base(full)
+	newFull := filepath.Join(targetFull, base)
+	if _, err := os.Stat(newFull); err == nil {
+		return Item{}, ErrAlreadyExists
+	}
+	if err := os.Rename(full, newFull); err != nil {
+		return Item{}, err
+	}
+	newLogical := filepath.ToSlash(path.Join(targetLogical, base))
+	return s.Info(newLogical)
+}
+
 func (s *Service) Delete(relative string) error {
 	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
 	if cleaned == "" || cleaned == "." || cleaned == ".." {
@@ -458,4 +495,64 @@ func naturalLess(a, b string) bool {
 		j++
 	}
 	return len(ar) < len(br)
+}
+
+func (s *Service) CreateZip(relative string) ([]byte, string, error) {
+	full, _, err := s.Resolve(relative)
+	if err != nil {
+		return nil, "", err
+	}
+	info, err := os.Stat(full)
+	if err != nil {
+		return nil, "", err
+	}
+	if !info.IsDir() {
+		return nil, "", ErrNotDirectory
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	baseDir := filepath.Base(full)
+	err = filepath.Walk(full, func(filePath string, fileInfo os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if filePath == full {
+			return nil
+		}
+		relPath, err := filepath.Rel(full, filePath)
+		if err != nil {
+			return err
+		}
+		zipPath := filepath.ToSlash(filepath.Join(baseDir, relPath))
+		header, err := zip.FileInfoHeader(fileInfo)
+		if err != nil {
+			return err
+		}
+		header.Name = zipPath
+		header.Method = zip.Deflate
+		if fileInfo.IsDir() {
+			header.Name += "/"
+			_, err = zw.CreateHeader(header)
+			return err
+		}
+		writer, err := zw.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = io.Copy(writer, f)
+		return err
+	})
+	if err != nil {
+		zw.Close()
+		return nil, "", err
+	}
+	if err := zw.Close(); err != nil {
+		return nil, "", err
+	}
+	return buf.Bytes(), baseDir + ".zip", nil
 }

@@ -7,6 +7,11 @@ const listDirectoryMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/client', () => ({
   listDirectory: listDirectoryMock,
+  createFile: vi.fn(),
+  createDir: vi.fn(),
+  deleteFile: vi.fn(),
+  moveFile: vi.fn(),
+  uploadFile: vi.fn(),
 }))
 
 const directory: FsItem = {
@@ -35,38 +40,78 @@ describe('FileTree', () => {
     listDirectoryMock.mockImplementation(async (path: string) => ({
       items: path === '' ? [directory] : [markdown],
     }))
+    const win = window as unknown as { matchMedia: () => { matches: boolean } }
+    win.matchMedia = () => ({ matches: false })
   })
 
-  it('loads directories lazily and refreshes expanded nodes', async () => {
+  it('loads root directory on mount and navigates on directory click', async () => {
     const wrapper = mount(FileTree, { props: { selectedPath: '' } })
     await flushPromises()
 
     expect(listDirectoryMock).toHaveBeenCalledTimes(1)
-    expect(listDirectoryMock).toHaveBeenLastCalledWith('', expect.any(AbortSignal))
+    expect(wrapper.text()).toContain('book1')
+    expect(wrapper.text()).toContain('~')
 
-    await wrapper.get('.tree-row').trigger('click')
+    await wrapper.find('.tree-label').trigger('click')
     await flushPromises()
+
     expect(listDirectoryMock).toHaveBeenCalledTimes(2)
     expect(listDirectoryMock).toHaveBeenLastCalledWith('book1', expect.any(AbortSignal))
     expect(wrapper.text()).toContain('chapter1.md')
-
-    await wrapper.get('button[aria-label="刷新文件树"]').trigger('click')
-    await flushPromises()
-
-    expect(listDirectoryMock).toHaveBeenCalledTimes(4)
-    expect(listDirectoryMock.mock.calls.map(([path]) => path)).toEqual(['', 'book1', '', 'book1'])
   })
 
-  it('emits a selected file from a loaded directory', async () => {
-    const wrapper = mount(FileTree, { props: { selectedPath: markdown.path } })
-    await flushPromises()
-    await wrapper.get('.tree-row').trigger('click')
+  it('emits open when a file is clicked', async () => {
+    listDirectoryMock.mockImplementation(async () => ({ items: [markdown] }))
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
     await flushPromises()
 
-    const rows = wrapper.findAll('.tree-row')
-    await rows[1]?.trigger('click')
+    await wrapper.find('.tree-label').trigger('click')
+    expect(wrapper.emitted('open')).toEqual([[markdown]])
+  })
+
+  it('shows breadcrumb and navigates via breadcrumb', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    expect(wrapper.findAll('.bc-crumb').length).toBe(1)
+    expect(wrapper.find('.bc-crumb').text()).toBe('~')
+
+    await wrapper.find('.tree-label').trigger('click')
+    await flushPromises()
+
+    const crumbs = wrapper.findAll('.bc-crumb')
+    expect(crumbs.length).toBe(2)
+    expect(crumbs[1]?.text()).toBe('book1')
+
+    await crumbs[0]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.bc-crumb').length).toBe(1)
+  })
+
+  it('expands directory inline when chevron clicked', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    const chevron = wrapper.find('.tree-chevron')
+    await chevron.trigger('click')
+    await flushPromises()
+
+    expect(listDirectoryMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('chapter1.md')
+  })
+
+  it('clicking file from expanded subtree opens it without navigating', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    await wrapper.find('.tree-chevron').trigger('click')
+    await flushPromises()
+
+    const childRow = wrapper.find('.tree-child-row')
+    await childRow.trigger('click')
 
     expect(wrapper.emitted('open')).toEqual([[markdown]])
-    expect(rows[1]?.classes()).toContain('selected')
+    expect(wrapper.findAll('.bc-crumb').length).toBe(1)
   })
 })

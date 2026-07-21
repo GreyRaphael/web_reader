@@ -99,6 +99,10 @@ export function rawFileUrl(path: string, download = false): string {
   return apiUrl('/fs/raw', download ? { path, download: '1' } : { path })
 }
 
+export function zipUrl(path: string): string {
+  return apiUrl('/fs/zip', { path })
+}
+
 export async function createFile(path: string): Promise<FileMetaResponse> {
   return request<FileMetaResponse>(apiUrl('/fs/file'), {
     method: 'POST',
@@ -135,5 +139,12 @@ export async function renameFile(path: string, newName: string): Promise<FileMet
 export async function deleteFile(path: string): Promise<{ deleted: string }> {
   return request<{ deleted: string }>(apiUrl('/fs/delete', { path }), {
     method: 'DELETE',
+  })
+}
+
+export async function moveFile(path: string, targetDir: string): Promise<FileMetaResponse> {
+  return request<FileMetaResponse>(apiUrl('/fs/move'), {
+    method: 'POST',
+    body: JSON.stringify({ path, targetDir }),
   })
 }

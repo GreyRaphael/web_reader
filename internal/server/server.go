@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -46,6 +47,8 @@ func New(cfg Config) *Server {
 	mux.Handle("POST /api/fs/dir", cfg.Sessions.Require(http.HandlerFunc(createDirHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/upload", cfg.Sessions.Require(http.HandlerFunc(uploadHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/rename", cfg.Sessions.Require(http.HandlerFunc(renameHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/move", cfg.Sessions.Require(http.HandlerFunc(moveHandler(cfg.Files))))
+	mux.Handle("GET /api/fs/zip", cfg.Sessions.Require(http.HandlerFunc(zipHandler(cfg.Files))))
 	mux.Handle("DELETE /api/fs/delete", cfg.Sessions.Require(http.HandlerFunc(deleteHandler(cfg.Files))))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "API route not found")
@@ -227,6 +230,45 @@ func renameHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"item": item})
+	}
+}
+
+func moveHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body := struct {
+			Path      string `json:"path"`
+			TargetDir string `json:"targetDir"`
+		}{}
+		if err := decodeJSONBody(r, &body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		item, err := service.Move(body.Path, body.TargetDir)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"item": item})
+	}
+}
+
+func zipHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		dirPath := r.URL.Query().Get("path")
+		if dirPath == "" {
+			writeError(w, http.StatusBadRequest, "invalid_path", "path query parameter is required")
+			return
+		}
+		data, filename, err := service.CreateZip(dirPath)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
+		w.Header().Set("Cache-Control", "private, max-age=60")
+		http.ServeContent(w, r, filename, time.Now(), bytes.NewReader(data))
 	}
 }
 
