@@ -308,11 +308,11 @@
 
 .panel-heading {
   display: flex;
-  min-height: 72px;
+  min-height: 50px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 13px 16px 11px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -746,11 +746,11 @@
 
 .preview-header {
   display: flex;
-  min-height: 72px;
+  min-height: 50px;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 10px clamp(14px, 3vw, 28px);
+  padding: 8px clamp(14px, 3vw, 28px);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
