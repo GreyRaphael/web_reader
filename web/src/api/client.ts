@@ -98,3 +98,42 @@ export async function getTextFile(path: string, signal?: AbortSignal): Promise<T
 export function rawFileUrl(path: string, download = false): string {
   return apiUrl('/fs/raw', download ? { path, download: '1' } : { path })
 }
+
+export async function createFile(path: string): Promise<FileMetaResponse> {
+  return request<FileMetaResponse>(apiUrl('/fs/file'), {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  })
+}
+
+export async function createDir(path: string): Promise<FileMetaResponse> {
+  return request<FileMetaResponse>(apiUrl('/fs/dir'), {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  })
+}
+
+export async function uploadFile(path: string, body: ArrayBuffer): Promise<FileMetaResponse> {
+  const headers = new Headers()
+  headers.set('Accept', 'application/json')
+  headers.set('Content-Type', 'application/octet-stream')
+  return request<FileMetaResponse>(apiUrl('/fs/upload', { path }), {
+    method: 'POST',
+    headers,
+    body,
+    credentials: 'same-origin',
+  })
+}
+
+export async function renameFile(path: string, newName: string): Promise<FileMetaResponse> {
+  return request<FileMetaResponse>(apiUrl('/fs/rename'), {
+    method: 'POST',
+    body: JSON.stringify({ path, newName }),
+  })
+}
+
+export async function deleteFile(path: string): Promise<{ deleted: string }> {
+  return request<{ deleted: string }>(apiUrl('/fs/delete', { path }), {
+    method: 'DELETE',
+  })
+}

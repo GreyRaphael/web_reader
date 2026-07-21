@@ -24,6 +24,8 @@ var (
 	ErrNotDirectory    = errors.New("not a directory")
 	ErrFileTooLarge    = errors.New("file exceeds preview limit")
 	ErrInvalidEncoding = errors.New("file is not valid UTF-8")
+	ErrAlreadyExists   = errors.New("file or directory already exists")
+	ErrNameEmpty       = errors.New("name cannot be empty")
 )
 
 type Item struct {
@@ -222,6 +224,144 @@ func (s *Service) Open(relative string) (*os.File, os.FileInfo, Item, error) {
 		return nil, nil, Item{}, err
 	}
 	return file, info, item, nil
+}
+
+func (s *Service) CreateFile(relative string) (Item, error) {
+	return s.createEntry(relative, false)
+}
+
+func (s *Service) CreateDir(relative string) (Item, error) {
+	return s.createEntry(relative, true)
+}
+
+func (s *Service) createEntry(relative string, isDir bool) (Item, error) {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
+	if cleaned == "" || strings.HasSuffix(cleaned, "/") || cleaned == "." || cleaned == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	base := path.Base(cleaned)
+	if base == "" || base == "." || base == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	parentDir := path.Dir(cleaned)
+	fullParent, _, err := s.Resolve(parentDir)
+	if err != nil {
+		return Item{}, err
+	}
+	fullPath := filepath.Join(fullParent, base)
+	real, err := filepath.EvalSymlinks(fullParent)
+	if err != nil {
+		return Item{}, err
+	}
+	real, err = filepath.Abs(real)
+	if err != nil {
+		return Item{}, err
+	}
+	relToRoot, err := filepath.Rel(s.root, real)
+	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
+		return Item{}, ErrOutsideRoot
+	}
+	if _, err := os.Stat(fullPath); err == nil {
+		return Item{}, ErrAlreadyExists
+	}
+	if isDir {
+		if err := os.Mkdir(fullPath, 0o755); err != nil {
+			return Item{}, err
+		}
+	} else {
+		f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err != nil {
+			return Item{}, err
+		}
+		f.Close()
+	}
+	return s.Info(cleaned)
+}
+
+func (s *Service) Rename(relative, newName string) (Item, error) {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
+	if cleaned == "" || cleaned == "." || cleaned == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	newName = strings.TrimSpace(newName)
+	if newName == "" || strings.ContainsRune(newName, '/') || strings.ContainsRune(newName, '\\') || newName == "." || newName == ".." {
+		return Item{}, ErrNameEmpty
+	}
+	full, _, err := s.Resolve(cleaned)
+	if err != nil {
+		return Item{}, err
+	}
+	parentDir := filepath.Dir(full)
+	newFull := filepath.Join(parentDir, newName)
+	relNew, err := filepath.Rel(s.root, newFull)
+	if err != nil || relNew == ".." || strings.HasPrefix(relNew, ".."+string(filepath.Separator)) || filepath.IsAbs(relNew) {
+		return Item{}, ErrOutsideRoot
+	}
+	if _, err := os.Stat(newFull); err == nil {
+		return Item{}, ErrAlreadyExists
+	}
+	if err := os.Rename(full, newFull); err != nil {
+		return Item{}, err
+	}
+	newLogical := filepath.ToSlash(path.Join(path.Dir(cleaned), newName))
+	return s.Info(newLogical)
+}
+
+func (s *Service) Delete(relative string) error {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
+	if cleaned == "" || cleaned == "." || cleaned == ".." {
+		return ErrInvalidPath
+	}
+	full, _, err := s.Resolve(cleaned)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(full)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return os.RemoveAll(full)
+	}
+	return os.Remove(full)
+}
+
+func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(relative), "\\", "/")
+	if cleaned == "" || strings.HasSuffix(cleaned, "/") || cleaned == "." || cleaned == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	base := path.Base(cleaned)
+	if base == "" || base == "." || base == ".." {
+		return Item{}, ErrInvalidPath
+	}
+	parentDir := path.Dir(cleaned)
+	fullParent, _, err := s.Resolve(parentDir)
+	if err != nil {
+		return Item{}, err
+	}
+	fullPath := filepath.Join(fullParent, base)
+	real, err := filepath.EvalSymlinks(fullParent)
+	if err != nil {
+		return Item{}, err
+	}
+	real, err = filepath.Abs(real)
+	if err != nil {
+		return Item{}, err
+	}
+	relToRoot, err := filepath.Rel(s.root, real)
+	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
+		return Item{}, ErrOutsideRoot
+	}
+	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return Item{}, err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, body); err != nil {
+		return Item{}, err
+	}
+	return s.Info(cleaned)
 }
 
 func IsInlineImage(mimeType string) bool {

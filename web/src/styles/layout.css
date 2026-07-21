@@ -309,6 +309,24 @@
   border-bottom: 1px solid var(--border);
 }
 
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tree-file-input {
+  display: none;
+}
+
+.tree-tool-message {
+  margin: 0;
+  padding: 6px 16px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+}
+
 .panel-heading h2 {
   margin: 3px 0 0;
   font-family: var(--font-serif);
@@ -348,9 +366,9 @@
   display: grid;
   width: 100%;
   min-height: 35px;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 16px 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 3px 8px 3px calc(7px + var(--tree-depth) * 15px);
   border: 0;
   border-radius: 6px;
@@ -371,20 +389,30 @@
   font-weight: 700;
 }
 
-.tree-icon {
+.tree-chevron {
   display: grid;
-  width: 20px;
-  height: 20px;
   place-items: center;
+  flex-shrink: 0;
   color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 800;
 }
 
-.tree-icon.kind-directory {
-  color: var(--accent);
-  font-size: 15px;
+.tree-chevron svg {
+  display: block;
+}
+
+.tree-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.tree-icon svg {
+  display: block;
+}
+
+.tree-row.selected .tree-icon {
+  color: var(--accent-strong);
 }
 
 .tree-name {
@@ -921,4 +949,76 @@
   .user-name {
     display: none;
   }
+}
+
+.ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: transparent;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 1001;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.ctx-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.ctx-item:hover,
+.ctx-item:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.ctx-item.danger {
+  color: var(--danger);
+}
+
+.ctx-item.danger:hover,
+.ctx-item.danger:focus-visible {
+  background: var(--danger-soft);
+}
+
+.ctx-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+}
+
+.ctx-item.danger .ctx-icon {
+  color: var(--danger);
+}
+
+.ctx-label {
+  flex: 1;
+}
+
+.ctx-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
 }

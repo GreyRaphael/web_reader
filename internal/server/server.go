@@ -42,6 +42,11 @@ func New(cfg Config) *Server {
 	mux.Handle("GET /api/fs/meta", cfg.Sessions.Require(http.HandlerFunc(metaHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/text", cfg.Sessions.Require(http.HandlerFunc(textHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/raw", cfg.Sessions.Require(http.HandlerFunc(rawHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/file", cfg.Sessions.Require(http.HandlerFunc(createFileHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/dir", cfg.Sessions.Require(http.HandlerFunc(createDirHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/upload", cfg.Sessions.Require(http.HandlerFunc(uploadHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/rename", cfg.Sessions.Require(http.HandlerFunc(renameHandler(cfg.Files))))
+	mux.Handle("DELETE /api/fs/delete", cfg.Sessions.Require(http.HandlerFunc(deleteHandler(cfg.Files))))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "API route not found")
 	})
@@ -140,6 +145,10 @@ func writeFileError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "File exceeds the configured preview limit")
 	case errors.Is(err, workspacefs.ErrInvalidEncoding):
 		writeError(w, http.StatusUnsupportedMediaType, "invalid_text_encoding", "File is not valid UTF-8")
+	case errors.Is(err, workspacefs.ErrAlreadyExists):
+		writeError(w, http.StatusConflict, "already_exists", "A file or directory with that name already exists")
+	case errors.Is(err, workspacefs.ErrNameEmpty):
+		writeError(w, http.StatusBadRequest, "invalid_name", "Name cannot be empty or contain path separators")
 	case errors.Is(err, os.ErrNotExist):
 		writeError(w, http.StatusNotFound, "not_found", "File or directory not found")
 	case errors.Is(err, os.ErrPermission):
@@ -147,6 +156,104 @@ func writeFileError(w http.ResponseWriter, err error) {
 	default:
 		writeError(w, http.StatusInternalServerError, "internal_error", "Unable to access workspace entry")
 	}
+}
+
+func createFileHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body := struct {
+			Path string `json:"path"`
+		}{}
+		if err := decodeJSONBody(r, &body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		item, err := service.CreateFile(body.Path)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"item": item})
+	}
+}
+
+func createDirHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body := struct {
+			Path string `json:"path"`
+		}{}
+		if err := decodeJSONBody(r, &body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		item, err := service.CreateDir(body.Path)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"item": item})
+	}
+}
+
+func uploadHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			writeError(w, http.StatusBadRequest, "invalid_path", "path query parameter is required")
+			return
+		}
+		defer r.Body.Close()
+		item, err := service.SaveUpload(path, r.Body)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"item": item})
+	}
+}
+
+func renameHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body := struct {
+			Path    string `json:"path"`
+			NewName string `json:"newName"`
+		}{}
+		if err := decodeJSONBody(r, &body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		item, err := service.Rename(body.Path, body.NewName)
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"item": item})
+	}
+}
+
+func deleteHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			writeError(w, http.StatusBadRequest, "invalid_path", "path query parameter is required")
+			return
+		}
+		if err := service.Delete(path); err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"deleted": path})
+	}
+}
+
+func decodeJSONBody(r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<16)
+	defer r.Body.Close()
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { listDirectory } from '@/api/client'
 import type { FsItem } from '@/api/types'
+import { iconSvg } from '@/utils/icons'
 import { sortFileItems } from '@/utils/sort'
 
 const props = defineProps<{
@@ -10,7 +11,10 @@ const props = defineProps<{
   depth: number
   refreshToken: number
 }>()
-const emit = defineEmits<{ open: [item: FsItem] }>()
+const emit = defineEmits<{
+  open: [item: FsItem]
+  contextMenu: [payload: { item: FsItem; event: MouseEvent }]
+}>()
 
 const expanded = ref(false)
 const loading = ref(false)
@@ -20,19 +24,24 @@ const children = ref<FsItem[]>([])
 let controller: AbortController | null = null
 let loadRun = 0
 
-const icon = computed(() => {
-  if (props.item.kind === 'directory') return expanded.value ? '▾' : '▸'
+const iconName = computed(() => {
+  if (props.item.kind === 'directory') return 'folder'
   switch (props.item.previewKind) {
     case 'markdown':
-      return 'M'
+      return 'file-code'
     case 'image':
-      return '◇'
+      return 'image'
     case 'text':
-      return '≡'
+      return 'file-text'
     default:
-      return '·'
+      return 'file'
   }
 })
+
+const chevronIcon = computed(() => (expanded.value ? 'chevron-down' : 'chevron-right'))
+
+const iconHtml = computed(() => iconSvg(iconName.value, 16))
+const chevronHtml = computed(() => iconSvg(chevronIcon.value, 14))
 
 async function loadChildren(): Promise<void> {
   if (loaded.value || loading.value) return
@@ -112,6 +121,12 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
   }
 }
 
+function handleContextMenu(event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('contextMenu', { item: props.item, event })
+}
+
 watch(
   () => props.refreshToken,
   () => {
@@ -143,10 +158,13 @@ onBeforeUnmount(() => {
       type="button"
       :style="{ '--tree-depth': depth }"
       :title="item.path"
+      :data-tree-path="item.path"
       @click="activate"
       @keydown="handleKeydown"
+      @contextmenu="handleContextMenu"
     >
-      <span class="tree-icon" :class="`kind-${item.kind}`" aria-hidden="true">{{ icon }}</span>
+      <span v-if="item.kind === 'directory'" class="tree-chevron" aria-hidden="true" v-html="chevronHtml"></span>
+      <span class="tree-icon" aria-hidden="true" v-html="iconHtml"></span>
       <span class="tree-name">{{ item.name }}</span>
       <span v-if="loading" class="tiny-spinner" aria-label="加载中"></span>
     </button>
@@ -164,6 +182,7 @@ onBeforeUnmount(() => {
         :depth="depth + 1"
         :refresh-token="refreshToken"
         @open="emit('open', $event)"
+        @context-menu="emit('contextMenu', $event)"
       />
       <li v-if="children.length === 0" class="tree-empty">空目录</li>
     </ul>
