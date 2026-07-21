@@ -21,7 +21,7 @@ const emit = defineEmits<{
 const article = ref<HTMLElement | null>(null)
 const rendered = ref<RenderedMarkdown>({ html: '', headings: [] })
 const renderError = ref('')
-const MAX_MERMAID_DIAGRAMS = 20
+const MAX_MERMAID_DIAGRAMS = 60
 const MAX_MERMAID_SOURCE_LENGTH = 50_000
 const MERMAID_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
