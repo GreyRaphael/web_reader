@@ -10,7 +10,7 @@ defineOptions({ name: 'TreeChildren' })
 defineProps<{
   items: FsItem[]
   selectedPath: string
-  dragOverDir: string
+  dragOverDir: string | null
   depth: number
 }>()
 const emit = defineEmits<{
@@ -63,7 +63,6 @@ function onDragStart(item: FsItem, event: DragEvent): void {
 }
 
 function onDragOver(item: FsItem, event: DragEvent): void {
-  if (item.kind !== 'directory') return
   event.preventDefault()
   event.stopPropagation()
   emit('dragOver', item, event)
@@ -77,7 +76,8 @@ function onDragLeave(_item: FsItem, event: DragEvent): void {
 function onDrop(item: FsItem, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  if (item.kind === 'directory') emit('drop', item.path, event)
+  const targetDir = item.kind === 'directory' ? item.path : (item.path.lastIndexOf('/') >= 0 ? item.path.slice(0, item.path.lastIndexOf('/')) : '')
+  emit('drop', targetDir, event)
 }
 
 function onContextMenu(item: FsItem, event: MouseEvent): void {
@@ -103,7 +103,7 @@ function iconName(item: FsItem): string {
   <template v-for="item in items" :key="item.path">
     <li
       class="tree-child-li"
-      :class="{ 'drag-over': dragOverDir === item.path }"
+      :class="{ 'drag-over': dragOverDir !== null && dragOverDir === item.path }"
       :draggable="true"
       @dragstart="onDragStart(item, $event)"
       @dragover="onDragOver(item, $event)"

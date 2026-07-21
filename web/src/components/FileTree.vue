@@ -32,7 +32,7 @@ let loadRun = 0
 
 const contextMenu = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
-const dragOverDir = ref('')
+const dragOverDir = ref<string | null>(null)
 
 const breadcrumb = ref<{ name: string; path: string }[]>([{ name: '~', path: '' }])
 
@@ -342,32 +342,49 @@ function onDragStart(item: FsItem, event: DragEvent): void {
 }
 
 function onDragOver(item: FsItem, event: DragEvent): void {
-  if (item.kind !== 'directory') return
   event.preventDefault()
   event.stopPropagation()
   event.dataTransfer!.dropEffect = 'move'
-  dragOverDir.value = item.path
+  if (item.kind === 'directory') {
+    dragOverDir.value = item.path
+  } else {
+    const lastSlash = item.path.lastIndexOf('/')
+    dragOverDir.value = lastSlash >= 0 ? item.path.slice(0, lastSlash) : currentDir.value
+  }
 }
 
 function onDragLeave(event: DragEvent): void {
   event.stopPropagation()
-  dragOverDir.value = ''
+  dragOverDir.value = null
 }
 
 async function onDrop(targetDir: string, event: DragEvent): Promise<void> {
   event.preventDefault()
   event.stopPropagation()
-  dragOverDir.value = ''
+  dragOverDir.value = null
   const sourcePath = event.dataTransfer?.getData('text/plain')
   if (!sourcePath || sourcePath === targetDir) return
-  const parentDir = targetDir.substring(0, targetDir.lastIndexOf('/'))
-  if (sourcePath === parentDir) return
+  const sourceParentDir = sourcePath.lastIndexOf('/') >= 0 ? sourcePath.substring(0, sourcePath.lastIndexOf('/')) : ''
+  if (sourceParentDir === targetDir) return
   try {
     await moveFile(sourcePath, targetDir)
     refreshDir()
   } catch (error) {
     toolMessage.value = error instanceof Error ? error.message : '移动失败'
   }
+}
+
+function onDragOverRoot(event: DragEvent): void {
+  event.preventDefault()
+  event.dataTransfer!.dropEffect = 'move'
+  dragOverDir.value = currentDir.value
+}
+
+function onDragOverBreadcrumb(path: string, event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  event.dataTransfer!.dropEffect = 'move'
+  dragOverDir.value = path
 }
 
 const iconName = (item: FsItem): string => {
@@ -453,9 +470,12 @@ onBeforeUnmount(() => controller?.abort())
         <span v-if="index > 0" class="bc-sep">/</span>
         <button
           class="bc-crumb"
-          :class="{ current: index === breadcrumb.length - 1 }"
+          :class="{ current: index === breadcrumb.length - 1, 'drag-over': dragOverDir !== null && dragOverDir === crumb.path }"
           type="button"
           @click="navigateTo(crumb.path)"
+          @dragover.prevent="onDragOverBreadcrumb(crumb.path, $event)"
+          @dragleave="onDragLeave($event)"
+          @drop="onDrop(crumb.path, $event)"
         >
           {{ crumb.name }}
         </button>
@@ -464,7 +484,13 @@ onBeforeUnmount(() => controller?.abort())
 
     <p v-if="toolMessage" class="tree-tool-message" role="alert">{{ toolMessage }}</p>
 
-    <div class="tree-scroll">
+    <div
+      class="tree-scroll"
+      :class="{ 'drag-over': dragOverDir !== null && dragOverDir === currentDir }"
+      @dragover="onDragOverRoot"
+      @dragleave="onDragLeave"
+      @drop="onDrop(currentDir, $event)"
+    >
       <div v-if="loading && items.length === 0" class="panel-state" role="status">
         <span class="loading-ring small" aria-hidden="true"></span>
         <span>加载文件…</span>
@@ -477,7 +503,7 @@ onBeforeUnmount(() => controller?.abort())
         <template v-for="item in items" :key="item.path">
           <li
             class="tree-node"
-            :class="{ 'drag-over': dragOverDir === item.path }"
+            :class="{ 'drag-over': dragOverDir !== null && dragOverDir === item.path }"
             role="treeitem"
             :aria-expanded="item.kind === 'directory' ? isExpanded(item.path) : undefined"
             :aria-selected="item.kind === 'file' ? selectedPath === item.path : undefined"
@@ -485,7 +511,7 @@ onBeforeUnmount(() => controller?.abort())
             @dragstart="onDragStart(item, $event)"
             @dragover="onDragOver(item, $event)"
             @dragleave="onDragLeave($event)"
-            @drop="onDrop(item.kind === 'directory' ? item.path : '', $event)"
+            @drop="onDrop(item.kind === 'directory' ? item.path : (item.path.lastIndexOf('/') >= 0 ? item.path.slice(0, item.path.lastIndexOf('/')) : currentDir), $event)"
           >
             <div class="tree-row" :class="{ selected: selectedPath === item.path }" :data-tree-path="item.path">
               <button
