@@ -1,13 +1,13 @@
 .markdown-body {
-  width: min(100%, 920px);
+  width: min(100%, 1024px);
   min-height: 100%;
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 68px) clamp(18px, 6vw, 76px) max(64px, env(safe-area-inset-bottom));
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 3vw, 40px) max(64px, env(safe-area-inset-bottom));
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-serif);
-  font-size: clamp(16px, 1.45vw, 18px);
-  line-height: 1.82;
+  font-size: var(--markdown-font-size, clamp(15px, 1.35vw, 17px));
+  line-height: 1.6;
 }
 
 .markdown-body > :first-child {

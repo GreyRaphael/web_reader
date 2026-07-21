@@ -48,18 +48,11 @@ function toggleCollapse(id: string, event: Event) {
   }
 }
 
-function collapseAll() {
-  const newSet = new Set<string>()
-  headingsWithMeta.value.forEach((h) => {
-    if (h.hasChild) newSet.add(h.id)
-  })
-  collapsedIds.value = newSet
-}
 
-function collapseLevel1() {
+function collapseLevel2() {
   const newSet = new Set<string>()
   headingsWithMeta.value.forEach((h) => {
-    if (h.hasChild && h.level === minimumLevel.value) {
+    if (h.hasChild && h.level >= minimumLevel.value + 1) {
       newSet.add(h.id)
     }
   })
@@ -88,18 +81,10 @@ watch(
         <button
           class="icon-button compact"
           type="button"
-          title="折叠所有"
-          aria-label="折叠所有"
+          title="折叠 Level 2"
+          aria-label="折叠 Level 2"
           v-html="iconSvg('chevrons-up', 16)"
-          @click="collapseAll"
-        ></button>
-        <button
-          class="icon-button compact"
-          type="button"
-          title="折叠 Level 1"
-          aria-label="折叠 Level 1"
-          v-html="iconSvg('list', 16)"
-          @click="collapseLevel1"
+          @click="collapseLevel2"
         ></button>
         <button
           class="icon-button compact"

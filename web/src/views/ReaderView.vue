@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getFileMeta, getTextFile, logout } from '@/api/client'
+import { iconSvg } from '@/utils/icons'
 import type { FsItem, TextResponse } from '@/api/types'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
@@ -63,7 +64,14 @@ const mobileRightOpen = ref(false)
 const mobileViewport = ref(false)
 const leftWidth = ref(storedWidth(LEFT_WIDTH_KEY, 286))
 const rightWidth = ref(storedWidth(RIGHT_WIDTH_KEY, 264))
+const fontSizeOffset = ref(Number(window.localStorage.getItem('web-reader-font-offset')) || 0)
+function changeFontSize(delta: number) {
+  if (delta === 0) fontSizeOffset.value = 0
+  else fontSizeOffset.value += delta
+  window.localStorage.setItem('web-reader-font-offset', String(fontSizeOffset.value))
+}
 const signingOut = ref(false)
+const userMenuOpen = ref(false)
 
 let previewRun = 0
 let previewController: AbortController | null = null
@@ -78,6 +86,7 @@ const workspaceStyle = computed(() => ({
   '--left-grip': leftVisible.value ? '5px' : '0px',
   '--right-column': rightVisible.value ? `${rightWidth.value}px` : '0px',
   '--right-grip': rightVisible.value ? '5px' : '0px',
+  '--markdown-font-size': `calc(clamp(15px, 1.35vw, 17px) + ${fontSizeOffset.value}px)`
 }))
 
 function isMobile(): boolean {
@@ -339,7 +348,13 @@ watch([mobileLeftOpen, mobileRightOpen], async ([leftOpen, rightOpen]) => {
     ?.focus()
 })
 
+function handleGlobalClick(e: MouseEvent) {
+  if (userMenuOpen.value && !(e.target as Element).closest('.user-menu-container')) {
+    userMenuOpen.value = false
+  }
+}
 onMounted(() => {
+  document.addEventListener('click', handleGlobalClick)
   handleViewportChange()
   constrainPanelWidths()
   window.addEventListener('keydown', handleKeydown)
@@ -351,6 +366,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleGlobalClick)
   previewController?.abort()
   stopResize()
   window.removeEventListener('keydown', handleKeydown)
@@ -376,8 +392,8 @@ onBeforeUnmount(() => {
         >
           ☰
         </button>
-        <div class="toolbar-brand" title="Web Reader">
-          <span class="mini-brand">W</span>
+        <div class="toolbar-brand" title="Web Reader" style="font-size:15px;">
+          <span class="mini-brand" style="font-size:16px;width:24px;height:24px;line-height:24px;margin-right:6px;">W</span>
           <span>Web Reader</span>
         </div>
       </div>
@@ -401,12 +417,21 @@ onBeforeUnmount(() => {
         >
           ☷
         </button>
-        <div class="user-menu">
-          <span class="user-name">{{ props.username }}</span>
-          <button class="text-button" type="button" :disabled="signingOut" @click="signOut">
-            {{ signingOut ? '退出中…' : '退出' }}
-          </button>
-        </div>
+        <div class="font-controls" style="display:flex;gap:4px;margin-right:12px;align-items:center;">
+  <button class="icon-button" type="button" @click="changeFontSize(-1)" title="缩小字体" aria-label="缩小字体" style="font-weight:bold;font-size:14px;width:28px;height:28px;">A-</button>
+  <button class="icon-button" type="button" @click="changeFontSize(0)" title="重置字体大小" aria-label="重置字体大小" style="font-weight:bold;font-size:14px;width:28px;height:28px;">Aa</button>
+  <button class="icon-button" type="button" @click="changeFontSize(1)" title="放大字体" aria-label="放大字体" style="font-weight:bold;font-size:16px;width:28px;height:28px;">A+</button>
+</div>
+<div class="user-menu-container" style="position:relative;display:flex;align-items:center;">
+  <button class="icon-button user-icon-btn" type="button" @click="userMenuOpen = !userMenuOpen" title="用户菜单" v-html="iconSvg('user')" style="width:32px;height:32px;border-radius:50%;background:var(--surface-muted);">
+  </button>
+  <div v-if="userMenuOpen" class="user-dropdown" style="position:absolute;top:calc(100% + 8px);right:0;background:var(--surface-raised);border:1px solid var(--border);border-radius:6px;padding:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:120px;">
+    <div style="padding:8px;border-bottom:1px solid var(--border);margin-bottom:4px;font-weight:600;font-size:14px;color:var(--text);">{{ props.username }}</div>
+    <button class="text-button" style="width:100%;text-align:left;padding:6px 8px;color:var(--danger);border-radius:4px;" type="button" :disabled="signingOut" @click="signOut">
+      {{ signingOut ? '退出中…' : '退出登录' }}
+    </button>
+  </div>
+</div>
       </div>
     </header>
 

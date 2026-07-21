@@ -3,7 +3,7 @@ import { defineAsyncComponent, ref } from 'vue'
 import type { FsItem, TextResponse } from '@/api/types'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
-import { formatBytes, formatModifiedAt } from '@/utils/format'
+
 import { getPreviewMode } from '@/utils/preview'
 import ImageViewer from './ImageViewer.vue'
 import type MarkdownViewerComponent from './MarkdownViewer.vue'
@@ -41,17 +41,7 @@ defineExpose({ scrollToHeading })
 
 <template>
   <section class="preview-pane" aria-label="文件预览">
-    <header v-if="item" class="preview-header">
-      <div class="preview-title-block">
-        <span class="file-type-badge">{{
-          item.previewKind === 'markdown' ? 'MD' : item.previewKind.toUpperCase().slice(0, 4)
-        }}</span>
-        <div>
-          <h1 :title="item.path">{{ item.name }}</h1>
-          <p>{{ formatBytes(item.size) }} · {{ formatModifiedAt(item.modifiedAt) }}</p>
-        </div>
-      </div>
-    </header>
+    
 
     <div class="preview-scroll">
       <div v-if="loading" class="preview-state" role="status">
