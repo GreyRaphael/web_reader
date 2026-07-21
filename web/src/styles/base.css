@@ -45,7 +45,7 @@ a:focus-visible,
 input:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 a {
@@ -54,6 +54,29 @@ a {
 
 ::selection {
   background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .icon-button,
@@ -250,4 +273,3 @@ button:disabled {
     animation-iteration-count: 1 !important;
   }
 }
-\n/* Custom Scrollbars */\n::-webkit-scrollbar {\n  width: 8px;\n  height: 8px;\n}\n::-webkit-scrollbar-track {\n  background: transparent;\n}\n::-webkit-scrollbar-thumb {\n  background: var(--border-strong);\n  border-radius: 4px;\n}\n::-webkit-scrollbar-thumb:hover {\n  background: var(--text-faint);\n}

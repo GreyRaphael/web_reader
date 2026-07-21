@@ -167,6 +167,44 @@
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.code-block:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    background-color 120ms ease;
+}
+
+.code-copy-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.code-copy-btn.copied {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent);
 }
 
 .code-block pre {
@@ -271,6 +309,10 @@
 
 .markdown-body tr:last-child td {
   border-bottom: 0;
+}
+
+.markdown-body tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-muted) 50%, transparent);
 }
 
 .markdown-body th:last-child,

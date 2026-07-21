@@ -2,11 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import type { FsItem } from '@/api/types'
 import { AUTH_EXPIRED_EVENT, getSession, rawFileUrl } from '@/api/client'
+import { ICON_PATHS } from '@/utils/icons'
 
 const props = defineProps<{ item: FsItem }>()
 const failed = ref(false)
 const loading = ref(true)
 const retryKey = ref(0)
+const lightboxOpen = ref(false)
 const imageSource = computed(() => `${rawFileUrl(props.item.path)}&retry=${retryKey.value}`)
 
 watch(
@@ -15,6 +17,7 @@ watch(
     failed.value = false
     loading.value = true
     retryKey.value = 0
+    lightboxOpen.value = false
   },
 )
 
@@ -34,6 +37,18 @@ function retry(): void {
   loading.value = true
   retryKey.value += 1
 }
+
+function openLightbox(): void {
+  lightboxOpen.value = true
+}
+
+function closeLightbox(): void {
+  lightboxOpen.value = false
+}
+
+function onLightboxKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') closeLightbox()
+}
 </script>
 
 <template>
@@ -51,8 +66,30 @@ function retry(): void {
       v-show="!failed"
       :src="imageSource"
       :alt="item.name"
+      class="image-viewer-img"
       @load="loading = false"
       @error="handleError"
+      @click="openLightbox"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="lightboxOpen"
+        class="lightbox-backdrop"
+        @click="closeLightbox"
+        @keydown="onLightboxKeydown"
+        tabindex="0"
+      >
+        <button class="lightbox-close" @click="closeLightbox" aria-label="关闭">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="ICON_PATHS['x']"></svg>
+        </button>
+        <img
+          :src="imageSource"
+          :alt="item.name"
+          class="lightbox-image"
+          @click.stop
+        />
+      </div>
+    </Teleport>
   </div>
 </template>

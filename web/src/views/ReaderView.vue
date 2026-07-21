@@ -389,11 +389,10 @@ onBeforeUnmount(() => {
           aria-label="切换文件栏"
           title="切换文件栏"
           @click="toggleLeft"
-        >
-          ☰
-        </button>
-        <div class="toolbar-brand" title="Web Reader" style="font-size:15px;">
-          <span class="mini-brand" style="font-size:16px;width:24px;height:24px;line-height:24px;margin-right:6px;">W</span>
+          v-html="iconSvg('menu', 18)"
+        ></button>
+        <div class="toolbar-brand" title="Web Reader">
+          <span class="mini-brand">W</span>
           <span>Web Reader</span>
         </div>
       </div>
@@ -414,24 +413,25 @@ onBeforeUnmount(() => {
           aria-label="切换大纲栏"
           title="切换大纲栏"
           @click="toggleRight"
-        >
-          ☷
-        </button>
-        <div class="font-controls" style="display:flex;gap:4px;margin-right:12px;align-items:center;">
-  <button class="icon-button" type="button" @click="changeFontSize(-1)" title="缩小字体" aria-label="缩小字体" style="font-weight:bold;font-size:14px;width:28px;height:28px;">A-</button>
-  <button class="icon-button" type="button" @click="changeFontSize(0)" title="重置字体大小" aria-label="重置字体大小" style="font-weight:bold;font-size:14px;width:28px;height:28px;">Aa</button>
-  <button class="icon-button" type="button" @click="changeFontSize(1)" title="放大字体" aria-label="放大字体" style="font-weight:bold;font-size:16px;width:28px;height:28px;">A+</button>
-</div>
-<div class="user-menu-container" style="position:relative;display:flex;align-items:center;">
-  <button class="icon-button user-icon-btn" type="button" @click="userMenuOpen = !userMenuOpen" title="用户菜单" v-html="iconSvg('user')" style="width:32px;height:32px;border-radius:50%;background:var(--surface-muted);">
-  </button>
-  <div v-if="userMenuOpen" class="user-dropdown" style="position:absolute;top:calc(100% + 8px);right:0;background:var(--surface-raised);border:1px solid var(--border);border-radius:6px;padding:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:120px;">
-    <div style="padding:8px;border-bottom:1px solid var(--border);margin-bottom:4px;font-weight:600;font-size:14px;color:var(--text);">{{ props.username }}</div>
-    <button class="text-button" style="width:100%;text-align:left;padding:6px 8px;color:var(--danger);border-radius:4px;" type="button" :disabled="signingOut" @click="signOut">
-      {{ signingOut ? '退出中…' : '退出登录' }}
-    </button>
-  </div>
-</div>
+          v-html="iconSvg('outline', 18)"
+        ></button>
+        <div class="font-controls">
+          <button class="font-btn" type="button" @click="changeFontSize(-1)" title="缩小字体" aria-label="缩小字体">A-</button>
+          <button class="font-btn" type="button" @click="changeFontSize(0)" title="重置字体大小" aria-label="重置字体大小">Aa</button>
+          <button class="font-btn" type="button" @click="changeFontSize(1)" title="放大字体" aria-label="放大字体">A+</button>
+        </div>
+        <div class="user-menu-container">
+          <button class="user-avatar" type="button" @click="userMenuOpen = !userMenuOpen" :title="props.username" v-html="iconSvg('user', 16)"></button>
+          <Transition name="dropdown">
+            <div v-if="userMenuOpen" class="user-dropdown">
+              <div class="user-dropdown-header">{{ props.username }}</div>
+              <button class="user-dropdown-btn" type="button" :disabled="signingOut" @click="signOut">
+                <span v-html="iconSvg('log-out', 14)"></span>
+                {{ signingOut ? '退出中…' : '退出登录' }}
+              </button>
+            </div>
+          </Transition>
+        </div>
       </div>
     </header>
 

@@ -3,6 +3,7 @@ import { defineAsyncComponent, ref } from 'vue'
 import type { FsItem, TextResponse } from '@/api/types'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
+import { formatBytes } from '@/utils/format'
 
 import { getPreviewMode } from '@/utils/preview'
 import ImageViewer from './ImageViewer.vue'
@@ -41,7 +42,15 @@ defineExpose({ scrollToHeading })
 
 <template>
   <section class="preview-pane" aria-label="文件预览">
-    
+    <div v-if="item" class="preview-header">
+      <div class="preview-title-block">
+        <div class="file-type-badge">{{ getPreviewMode(item) === 'markdown' ? 'MD' : getPreviewMode(item) === 'image' ? 'IMG' : getPreviewMode(item) === 'text' ? 'TXT' : '?' }}</div>
+        <div>
+          <h1>{{ item.name }}</h1>
+          <p>{{ item.path }}<span v-if="item.size !== undefined"> · {{ formatBytes(item.size) }}</span></p>
+        </div>
+      </div>
+    </div>
 
     <div class="preview-scroll">
       <div v-if="loading" class="preview-state" role="status">
@@ -64,23 +73,25 @@ defineExpose({ scrollToHeading })
           <span><kbd>☷</kbd> 大纲</span>
         </div>
       </div>
-      <MarkdownViewer
-        v-else-if="getPreviewMode(item) === 'markdown' && text"
-        ref="markdownViewer"
-        :content="text.content"
-        :current-path="item.path"
-        :theme="theme"
-        @headings="emit('headings', $event)"
-        @active-heading="emit('activeHeading', $event)"
-        @open-path="forwardOpenPath"
-      />
-      <TextViewer
-        v-else-if="getPreviewMode(item) === 'text' && text"
-        :content="text.content"
-        :encoding="text.encoding"
-      />
-      <ImageViewer v-else-if="getPreviewMode(item) === 'image'" :item="item" />
-      <UnsupportedViewer v-else :item="item" />
+      <template v-else>
+        <MarkdownViewer
+          v-if="getPreviewMode(item!) === 'markdown' && text"
+          ref="markdownViewer"
+          :content="text!.content"
+          :current-path="item!.path"
+          :theme="theme"
+          @headings="emit('headings', $event)"
+          @active-heading="emit('activeHeading', $event)"
+          @open-path="forwardOpenPath"
+        />
+        <TextViewer
+          v-else-if="getPreviewMode(item!) === 'text' && text"
+          :content="text!.content"
+          :encoding="text!.encoding"
+        />
+        <ImageViewer v-else-if="getPreviewMode(item!) === 'image'" :item="item!" />
+        <UnsupportedViewer v-else :item="item!" />
+      </template>
     </div>
   </section>
 </template>

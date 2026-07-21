@@ -152,6 +152,31 @@ function installScrollSpy(): void {
   requestScrollUpdate()
 }
 
+function injectCodeCopyButtons(): void {
+  if (!article.value) return
+  for (const block of article.value.querySelectorAll<HTMLElement>('.code-block')) {
+    if (block.querySelector('.code-copy-btn')) continue
+    const btn = document.createElement('button')
+    btn.className = 'code-copy-btn'
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['clipboard']}</svg> 复制`
+    btn.addEventListener('click', async () => {
+      const code = block.querySelector('code')?.textContent ?? ''
+      try {
+        await navigator.clipboard.writeText(code)
+        btn.classList.add('copied')
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['check']}</svg> 已复制`
+        setTimeout(() => {
+          btn.classList.remove('copied')
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['clipboard']}</svg> 复制`
+        }, 2000)
+      } catch {
+        // clipboard unavailable
+      }
+    })
+    block.appendChild(btn)
+  }
+}
+
 function showMermaidError(diagram: HTMLElement, message: string): void {
   const output = diagram.querySelector<HTMLElement>('.mermaid-output')
   if (!output) return
@@ -278,6 +303,7 @@ async function updateMarkdown(): Promise<void> {
   }
   await nextTick()
   installScrollSpy()
+  injectCodeCopyButtons()
   await renderMermaidDiagrams()
 }
 

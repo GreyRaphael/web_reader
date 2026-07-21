@@ -115,10 +115,15 @@ watch(
         ></span>
         <span v-else class="outline-chevron-spacer"></span>
         <span class="outline-title">{{ heading.title }}</span>
+        <span
+          v-if="heading.level > minimumLevel"
+          class="outline-guide"
+          :style="{ left: `${10 + (heading.level - minimumLevel - 1) * 13}px` }"
+        ></span>
       </button>
     </nav>
     <div v-else class="outline-empty">
-      <span aria-hidden="true">☷</span>
+      <span aria-hidden="true" v-html="iconSvg('list', 28)"></span>
       <p>打开 Markdown 文件后，这里会显示章节大纲。</p>
     </div>
   </div>
