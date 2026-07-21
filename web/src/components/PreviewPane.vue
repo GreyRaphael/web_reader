@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, ref } from 'vue'
 import type { FsItem, TextResponse } from '@/api/types'
-import { rawFileUrl } from '@/api/client'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
 import { formatBytes, formatModifiedAt } from '@/utils/format'
@@ -52,13 +51,6 @@ defineExpose({ scrollToHeading })
           <p>{{ formatBytes(item.size) }} · {{ formatModifiedAt(item.modifiedAt) }}</p>
         </div>
       </div>
-      <a
-        class="icon-button"
-        :href="rawFileUrl(item.path, true)"
-        title="下载文件"
-        aria-label="下载文件"
-        >↓</a
-      >
     </header>
 
     <div class="preview-scroll">

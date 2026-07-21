@@ -9,7 +9,7 @@ import ThemeControl from '@/components/ThemeControl.vue'
 import { useTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
 import { decodeFragment } from '@/utils/path'
-import { isTextPreview } from '@/utils/preview'
+import { getPreviewMode, isTextPreview } from '@/utils/preview'
 
 const props = defineProps<{ username: string }>()
 const emit = defineEmits<{ signedOut: [] }>()
@@ -154,6 +154,11 @@ async function openItem(
     if (item.kind !== 'file') throw new Error('目录不能在预览区打开')
 
     selectedItem.value = item
+    if (getPreviewMode(item) === 'markdown') {
+      rightVisible.value = true
+    } else {
+      rightVisible.value = false
+    }
     updateLocation(item.path, historyMode, hash)
     if (isTextPreview(item.previewKind)) {
       const text = await getTextFile(item.path, previewController.signal)
