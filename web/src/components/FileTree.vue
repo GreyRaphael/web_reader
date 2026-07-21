@@ -429,8 +429,7 @@ onBeforeUnmount(() => controller?.abort())
   <div class="file-tree-panel">
     <div class="panel-heading">
       <div>
-        <p class="panel-kicker">WORKSPACE</p>
-        <h2>文件</h2>
+        <h2>WORKSPACE</h2>
       </div>
       <div class="tree-toolbar">
         <input ref="fileInput" type="file" class="tree-file-input" @change="handleUpload" />

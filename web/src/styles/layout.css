@@ -647,7 +647,10 @@
 
 .outline-link {
   position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
   width: 100%;
   min-height: 34px;
   overflow: hidden;
@@ -660,8 +663,32 @@
   font-size: 12px;
   line-height: 1.35;
   text-align: left;
+}
+
+.outline-title {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.outline-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  transition: color 0.1s, background-color 0.1s;
+}
+
+.outline-chevron:hover {
+  background: var(--border-hover);
+  color: var(--text);
+}
+
+.outline-chevron-spacer {
+  width: 16px;
 }
 
 .outline-link:hover {
