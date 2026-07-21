@@ -405,7 +405,7 @@
 @media (max-width: 600px) {
   .markdown-body {
     padding-top: 28px;
-    font-size: 16px;
+    font-size: var(--markdown-font-size, 16px);
     line-height: 1.75;
   }
 
