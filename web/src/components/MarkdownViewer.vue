@@ -3,6 +3,8 @@ import DOMPurify from 'dompurify'
 import 'highlight.js/styles/github.css'
 import 'katex/dist/katex.min.css'
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import panzoom, { type PanZoom } from 'panzoom'
+import { ICON_PATHS } from '@/utils/icons'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import { renderMarkdown, type MarkdownHeading, type RenderedMarkdown } from '@/markdown/render'
 import { decodeFragment } from '@/utils/path'
@@ -29,6 +31,63 @@ const MERMAID_FONT_FAMILY =
 let mermaidRun = 0
 let scrollFrame = 0
 let scrollContainer: HTMLElement | null = null
+
+const panzoomInstances = new Map<HTMLElement, PanZoom>()
+const fullscreenMermaidHTML = ref<string>('')
+const modalRotation = ref<number>(0)
+const fullscreenOutputRef = ref<HTMLElement | null>(null)
+let modalPanzoom: PanZoom | null = null
+
+function cleanupPanzoom() {
+  for (const pz of panzoomInstances.values()) {
+    pz.dispose()
+  }
+  panzoomInstances.clear()
+}
+
+function handleZoomAction(pz: PanZoom, container: HTMLElement, action: string) {
+  const rect = container.getBoundingClientRect()
+  const cx = rect.width / 2
+  const cy = rect.height / 2
+  if (action === 'zoom-in') pz.smoothZoom(cx, cy, 1.2)
+  else if (action === 'zoom-out') pz.smoothZoom(cx, cy, 1 / 1.2)
+  else if (action === 'reset' || action === 'maximize') {
+    pz.moveTo(0, 0)
+    pz.zoomAbs(0, 0, 1)
+  }
+}
+
+function closeFullscreen() {
+  if (modalPanzoom) {
+    modalPanzoom.dispose()
+    modalPanzoom = null
+  }
+  fullscreenMermaidHTML.value = ''
+  modalRotation.value = 0
+}
+
+function handleModalAction(action: string) {
+  if (action === 'minimize' || action === 'close') closeFullscreen()
+  else if (action === 'rotate') modalRotation.value += 90
+  else if (modalPanzoom && fullscreenOutputRef.value) {
+    handleZoomAction(modalPanzoom, fullscreenOutputRef.value, action)
+  }
+}
+
+watch(fullscreenOutputRef, (el) => {
+  if (el) {
+    const svg = el.querySelector('svg')
+    if (svg) {
+      modalPanzoom = panzoom(svg, {
+        maxZoom: 10,
+        minZoom: 0.1,
+        bounds: true,
+        boundsPadding: 0.1,
+      })
+    }
+  }
+})
+
 
 function removeScrollSpy(): void {
   if (scrollContainer) scrollContainer.removeEventListener('scroll', requestScrollUpdate)
@@ -139,6 +198,29 @@ async function renderMermaidDiagrams(): Promise<void> {
           FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'object', 'embed'],
         })
         preserveMermaidSize(output)
+        
+        const toolbarHTML = `
+          <div class="mermaid-toolbar">
+            <button class="mermaid-btn" data-action="zoom-in" title="Zoom In"><svg viewBox="0 0 24 24">${ICON_PATHS['zoom-in']}</svg></button>
+            <button class="mermaid-btn" data-action="zoom-out" title="Zoom Out"><svg viewBox="0 0 24 24">${ICON_PATHS['zoom-out']}</svg></button>
+            <button class="mermaid-btn" data-action="reset" title="Reset View"><svg viewBox="0 0 24 24">${ICON_PATHS['rotate-ccw']}</svg></button>
+            <button class="mermaid-btn" data-action="maximize" title="Maximize"><svg viewBox="0 0 24 24">${ICON_PATHS['maximize']}</svg></button>
+          </div>
+        `
+        if (!diagram.querySelector('.mermaid-toolbar')) {
+          diagram.insertAdjacentHTML('beforeend', toolbarHTML)
+        }
+        
+        const svg = output.querySelector('svg')
+        if (svg) {
+          const pz = panzoom(svg, {
+            maxZoom: 10,
+            minZoom: 0.1,
+            bounds: true,
+            boundsPadding: 0.1,
+          })
+          panzoomInstances.set(diagram, pz)
+        }
       } catch (error) {
         if (run !== mermaidRun) return
         output.classList.add('mermaid-error')
@@ -158,6 +240,7 @@ async function renderMermaidDiagrams(): Promise<void> {
 }
 
 async function updateMarkdown(): Promise<void> {
+  cleanupPanzoom()
   try {
     rendered.value = renderMarkdown(props.content, props.currentPath)
     renderError.value = ''
@@ -175,7 +258,25 @@ async function updateMarkdown(): Promise<void> {
 function handleClick(event: MouseEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
+
+  const mermaidBtn = target.closest<HTMLButtonElement>('.mermaid-btn')
+  const mermaidDiagram = target.closest<HTMLElement>('.mermaid-diagram')
+  if (mermaidBtn && mermaidDiagram) {
+    const action = mermaidBtn.dataset.action
+    if (action === 'maximize') {
+      const svgHTML = mermaidDiagram.querySelector('.mermaid-output')?.innerHTML
+      if (svgHTML) {
+        fullscreenMermaidHTML.value = svgHTML
+      }
+    } else if (action) {
+      const pz = panzoomInstances.get(mermaidDiagram)
+      if (pz) handleZoomAction(pz, mermaidDiagram, action)
+    }
+    return
+  }
+
   const anchor = target.closest<HTMLAnchorElement>('a')
+
   if (!anchor || !article.value?.contains(anchor)) return
 
   const path = anchor.dataset.readerPath
@@ -217,6 +318,8 @@ watch(
 onBeforeUnmount(() => {
   mermaidRun += 1
   removeScrollSpy()
+  cleanupPanzoom()
+  closeFullscreen()
 })
 </script>
 
@@ -235,4 +338,23 @@ onBeforeUnmount(() => {
     <h2>Markdown 无法显示</h2>
     <p>{{ renderError }}</p>
   </div>
+
+  <Teleport to="body">
+    <dialog v-if="fullscreenMermaidHTML" class="mermaid-modal" open @close="closeFullscreen">
+      <div class="mermaid-modal-backdrop" @click="closeFullscreen"></div>
+      <div class="mermaid-modal-content">
+        <div class="mermaid-toolbar modal-toolbar">
+          <button class="mermaid-btn" data-action="zoom-in" title="Zoom In" @click="handleModalAction('zoom-in')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['zoom-in']"></svg></button>
+          <button class="mermaid-btn" data-action="zoom-out" title="Zoom Out" @click="handleModalAction('zoom-out')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['zoom-out']"></svg></button>
+          <button class="mermaid-btn" data-action="reset" title="Reset View" @click="handleModalAction('reset')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-ccw']"></svg></button>
+          <button class="mermaid-btn" data-action="rotate" title="Rotate 90°" @click="handleModalAction('rotate')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-cw']"></svg></button>
+          <button class="mermaid-btn" data-action="minimize" title="Minimize" @click="handleModalAction('minimize')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['minimize']"></svg></button>
+        </div>
+        <div class="fullscreen-output-wrapper" :style="{ transform: 'rotate(' + modalRotation + 'deg)', transition: 'transform 0.3s', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }">
+          <div class="mermaid-output fullscreen-output" ref="fullscreenOutputRef" v-html="fullscreenMermaidHTML" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+        </div>
+      </div>
+    </dialog>
+  </Teleport>
 </template>
+
