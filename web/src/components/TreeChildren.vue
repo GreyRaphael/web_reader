@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
-import { listDirectory } from '@/api/client'
+import { inject } from 'vue'
 import type { FsItem } from '@/api/types'
 import { iconSvg } from '@/utils/icons'
-import { sortFileItems } from '@/utils/sort'
 
 defineOptions({ name: 'TreeChildren' })
 
@@ -25,9 +23,9 @@ const emit = defineEmits<{
   expand: [dir: string]
 }>()
 
-const expanded = reactive(new Set<string>())
-const cache = reactive(new Map<string, FsItem[]>())
-const loading = reactive(new Set<string>())
+const expanded = inject('expandedDirs') as Set<string>
+const cache = inject('childCache') as Map<string, FsItem[]>
+const loadChildren = inject('loadChildren') as (dir: string) => Promise<void>
 
 function isExpanded(dir: string): boolean {
   return expanded.has(dir)
@@ -35,17 +33,6 @@ function isExpanded(dir: string): boolean {
 
 function getChildren(dir: string): FsItem[] {
   return cache.get(dir) ?? []
-}
-
-async function loadChildren(dir: string): Promise<void> {
-  if (loading.has(dir)) return
-  loading.add(dir)
-  try {
-    const response = await listDirectory(dir)
-    cache.set(dir, sortFileItems(response.items))
-  } finally {
-    loading.delete(dir)
-  }
 }
 
 function toggleExpand(dir: string): void {

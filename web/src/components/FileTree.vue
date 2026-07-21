@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch, provide } from 'vue'
 import {
   createDir,
   createFile,
@@ -102,6 +102,11 @@ async function loadChildren(dir: string): Promise<void> {
     childLoading.delete(dir)
   }
 }
+
+provide('expandedDirs', expandedDirs)
+provide('childCache', childCache)
+provide('childLoading', childLoading)
+provide('loadChildren', loadChildren)
 
 function toggleExpand(dir: string): void {
   if (expandedDirs.has(dir)) {
@@ -503,7 +508,6 @@ onBeforeUnmount(() => controller?.abort())
         <template v-for="item in items" :key="item.path">
           <li
             class="tree-node"
-            :class="{ 'drag-over': dragOverDir !== null && dragOverDir === item.path }"
             role="treeitem"
             :aria-expanded="item.kind === 'directory' ? isExpanded(item.path) : undefined"
             :aria-selected="item.kind === 'file' ? selectedPath === item.path : undefined"
@@ -513,7 +517,7 @@ onBeforeUnmount(() => controller?.abort())
             @dragleave="onDragLeave($event)"
             @drop="onDrop(item.kind === 'directory' ? item.path : (item.path.lastIndexOf('/') >= 0 ? item.path.slice(0, item.path.lastIndexOf('/')) : currentDir), $event)"
           >
-            <div class="tree-row" :class="{ selected: selectedPath === item.path }" :data-tree-path="item.path">
+            <div class="tree-row" :class="{ selected: selectedPath === item.path, 'drag-over': dragOverDir !== null && dragOverDir === item.path }" :data-tree-path="item.path">
               <button
                 v-if="item.kind === 'directory'"
                 class="tree-chevron"
