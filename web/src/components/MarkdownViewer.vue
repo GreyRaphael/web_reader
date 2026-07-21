@@ -80,9 +80,10 @@ function preserveMermaidSize(output: HTMLElement): void {
   const viewBox = svg?.viewBox.baseVal
   if (!svg || !viewBox || viewBox.width <= 0 || viewBox.height <= 0) return
 
-  svg.style.width = `${viewBox.width}px`
+  const naturalWidth = viewBox.width
+  svg.style.width = '100%'
+  svg.style.maxWidth = `${naturalWidth}px`
   svg.style.height = 'auto'
-  svg.style.maxWidth = 'none'
 }
 
 async function renderMermaidDiagrams(): Promise<void> {
