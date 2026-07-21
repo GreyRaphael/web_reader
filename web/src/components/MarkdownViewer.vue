@@ -45,15 +45,39 @@ function cleanupPanzoom() {
   panzoomInstances.clear()
 }
 
-function handleZoomAction(pz: PanZoom, container: HTMLElement, action: string) {
-  const rect = container.getBoundingClientRect()
-  const cx = rect.width / 2
-  const cy = rect.height / 2
+function handleZoomAction(pz: PanZoom, container: HTMLElement, action: string, isModal = false) {
+  const rectWidth = container.clientWidth
+  const rectHeight = container.clientHeight
+  const cx = rectWidth / 2
+  const cy = rectHeight / 2
   if (action === 'zoom-in') pz.smoothZoom(cx, cy, 1.2)
   else if (action === 'zoom-out') pz.smoothZoom(cx, cy, 1 / 1.2)
   else if (action === 'reset' || action === 'maximize') {
-    pz.moveTo(0, 0)
-    pz.zoomAbs(0, 0, 1)
+    if (!isModal) {
+      pz.moveTo(0, 0)
+      pz.zoomAbs(0, 0, 1)
+    } else {
+      const svg = container.querySelector('svg')
+      if (svg) {
+        let contentWidth = svg.clientWidth
+        let contentHeight = svg.clientHeight
+        
+        if (modalRotation.value % 180 !== 0) {
+          contentWidth = svg.clientHeight
+          contentHeight = svg.clientWidth
+        }
+        
+        if (contentWidth > 0 && contentHeight > 0) {
+          const scaleX = rectWidth / contentWidth
+          const scaleY = rectHeight / contentHeight
+          let scale = Math.min(scaleX, scaleY) * 0.98
+          
+          pz.zoomAbs(0, 0, 1)
+          pz.moveTo(0, 0)
+          pz.zoomAbs(cx, cy, scale)
+        }
+      }
+    }
   }
 }
 
@@ -68,23 +92,25 @@ function closeFullscreen() {
 
 function handleModalAction(action: string) {
   if (action === 'minimize' || action === 'close') closeFullscreen()
-  else if (action === 'rotate') modalRotation.value += 90
+  else if (action === 'rotate') {
+    modalRotation.value += 90
+    if (modalPanzoom && fullscreenOutputRef.value) {
+      handleZoomAction(modalPanzoom, fullscreenOutputRef.value, 'reset', true)
+    }
+  }
   else if (modalPanzoom && fullscreenOutputRef.value) {
-    handleZoomAction(modalPanzoom, fullscreenOutputRef.value, action)
+    handleZoomAction(modalPanzoom, fullscreenOutputRef.value, action, true)
   }
 }
 
 watch(fullscreenOutputRef, (el) => {
   if (el) {
-    const svg = el.querySelector('svg')
-    if (svg) {
-      modalPanzoom = panzoom(svg, {
+      modalPanzoom = panzoom(el, {
         maxZoom: 10,
         minZoom: 0.1,
-        bounds: true,
-        boundsPadding: 0.1,
+        bounds: false
       })
-    }
+      handleZoomAction(modalPanzoom, el, 'reset', true)
   }
 })
 
@@ -217,7 +243,7 @@ async function renderMermaidDiagrams(): Promise<void> {
             maxZoom: 10,
             minZoom: 0.1,
             bounds: true,
-            boundsPadding: 0.1,
+            boundsPadding: 0.1
           })
           panzoomInstances.set(diagram, pz)
         }
@@ -270,7 +296,7 @@ function handleClick(event: MouseEvent): void {
       }
     } else if (action) {
       const pz = panzoomInstances.get(mermaidDiagram)
-      if (pz) handleZoomAction(pz, mermaidDiagram, action)
+      if (pz) handleZoomAction(pz, mermaidDiagram, action, false)
     }
     return
   }
@@ -350,8 +376,10 @@ onBeforeUnmount(() => {
           <button class="mermaid-btn" data-action="rotate" title="Rotate 90°" @click="handleModalAction('rotate')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-cw']"></svg></button>
           <button class="mermaid-btn" data-action="minimize" title="Minimize" @click="handleModalAction('minimize')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['minimize']"></svg></button>
         </div>
-        <div class="fullscreen-output-wrapper" :style="{ transform: 'rotate(' + modalRotation + 'deg)', transition: 'transform 0.3s', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }">
-          <div class="mermaid-output fullscreen-output" ref="fullscreenOutputRef" v-html="fullscreenMermaidHTML" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+        <div class="mermaid-output fullscreen-output" style="width: 100%; height: 100%; overflow: hidden;">
+          <div ref="fullscreenOutputRef" class="panzoom-target" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+            <div class="svg-rotator" :style="{ transform: 'rotate(' + modalRotation + 'deg)', transition: 'transform 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }" v-html="fullscreenMermaidHTML"></div>
+          </div>
         </div>
       </div>
     </dialog>
