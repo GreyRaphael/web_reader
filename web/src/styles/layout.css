@@ -323,7 +323,7 @@
 }
 
 .user-dropdown-btn:disabled {
-  opacity: 0.58;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -857,24 +857,20 @@
 .outline-link[style*="--outline-depth: 3"]::after {
   width: 1px;
   background: var(--border);
+  height: calc(100% - 17px);
+  top: 17px;
 }
 
 .outline-link[style*="--outline-depth: 1"]::after {
   left: 10px;
-  height: calc(100% - 17px);
-  top: 17px;
 }
 
 .outline-link[style*="--outline-depth: 2"]::after {
   left: calc(10px + 13px);
-  height: calc(100% - 17px);
-  top: 17px;
 }
 
 .outline-link[style*="--outline-depth: 3"]::after {
   left: calc(10px + 26px);
-  height: calc(100% - 17px);
-  top: 17px;
 }
 
 .outline-title {
@@ -895,7 +891,7 @@
 }
 
 .outline-chevron:hover {
-  background: var(--border-hover);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -1283,12 +1279,7 @@
     padding-left: max(4px, env(safe-area-inset-left));
   }
 
-  .toolbar-brand > span:last-child,
   .toolbar-path,
-  .user-name {
-    display: none;
-  }
-
   .theme-control {
     display: none;
   }
@@ -1436,7 +1427,7 @@
   }
 }
 
-@media (min-width: 841px) and (max-width: 1080px) {
+@media (max-width: 1080px) {
   .toolbar-brand > span:last-child,
   .user-name {
     display: none;

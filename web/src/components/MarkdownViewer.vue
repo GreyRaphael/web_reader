@@ -25,8 +25,11 @@ const rendered = ref<RenderedMarkdown>({ html: '', headings: [] })
 const renderError = ref('')
 const MAX_MERMAID_DIAGRAMS = 60
 const MAX_MERMAID_SOURCE_LENGTH = 50_000
-const MERMAID_FONT_FAMILY =
-  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+
+function getMermaidFontFamily(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() ||
+    'ui-sans-serif, system-ui, sans-serif'
+}
 
 let mermaidRun = 0
 let scrollFrame = 0
@@ -196,6 +199,29 @@ function preserveMermaidSize(output: HTMLElement): void {
   svg.style.height = 'auto'
 }
 
+function renderToolbarHTML(actions: string[]): string {
+  return `<div class="mermaid-toolbar">${actions
+    .map((a) => `<button class="mermaid-btn" data-action="${a}" title="${actionTitle(a)}"><svg viewBox="0 0 24 24">${ICON_PATHS[actionIcon(a)]}</svg></button>`)
+    .join('')}</div>`
+}
+
+function actionTitle(action: string): string {
+  const titles: Record<string, string> = {
+    'zoom-in': 'Zoom In', 'zoom-out': 'Zoom Out', 'reset': 'Reset View',
+    'maximize': 'Maximize', 'rotate': 'Rotate 90°', 'minimize': 'Minimize',
+  }
+  return titles[action] ?? action
+}
+
+function actionIcon(action: string): string {
+  const map: Record<string, string> = {
+    reset: 'rotate-ccw',
+    rotate: 'rotate-cw',
+    minimize: 'minimize',
+  }
+  return map[action] ?? action
+}
+
 async function renderMermaidDiagrams(): Promise<void> {
   const run = ++mermaidRun
   const root = article.value
@@ -226,7 +252,7 @@ async function renderMermaidDiagrams(): Promise<void> {
       securityLevel: 'strict',
       theme: props.theme === 'night' ? 'dark' : 'default',
       htmlLabels: false,
-      fontFamily: MERMAID_FONT_FAMILY,
+      fontFamily: getMermaidFontFamily(),
       suppressErrorRendering: true,
     })
 
@@ -250,14 +276,7 @@ async function renderMermaidDiagrams(): Promise<void> {
         })
         preserveMermaidSize(output)
         
-        const toolbarHTML = `
-          <div class="mermaid-toolbar">
-            <button class="mermaid-btn" data-action="zoom-in" title="Zoom In"><svg viewBox="0 0 24 24">${ICON_PATHS['zoom-in']}</svg></button>
-            <button class="mermaid-btn" data-action="zoom-out" title="Zoom Out"><svg viewBox="0 0 24 24">${ICON_PATHS['zoom-out']}</svg></button>
-            <button class="mermaid-btn" data-action="reset" title="Reset View"><svg viewBox="0 0 24 24">${ICON_PATHS['rotate-ccw']}</svg></button>
-            <button class="mermaid-btn" data-action="maximize" title="Maximize"><svg viewBox="0 0 24 24">${ICON_PATHS['maximize']}</svg></button>
-          </div>
-        `
+        const toolbarHTML = renderToolbarHTML(['zoom-in', 'zoom-out', 'reset', 'maximize'])
         if (!diagram.querySelector('.mermaid-toolbar')) {
           diagram.insertAdjacentHTML('beforeend', toolbarHTML)
         }
@@ -402,9 +421,9 @@ onBeforeUnmount(() => {
           <button class="mermaid-btn" data-action="rotate" title="Rotate 90°" @click="handleModalAction('rotate')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-cw']"></svg></button>
           <button class="mermaid-btn" data-action="minimize" title="Minimize" @click="handleModalAction('minimize')"><svg viewBox="0 0 24 24" v-html="ICON_PATHS['minimize']"></svg></button>
         </div>
-        <div class="mermaid-output fullscreen-output" style="width: 100%; height: 100%; overflow: hidden;">
-          <div ref="fullscreenOutputRef" class="panzoom-target" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-            <div class="svg-rotator" :style="{ transform: 'rotate(' + modalRotation + 'deg)', transition: 'transform 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }" v-html="fullscreenMermaidHTML"></div>
+        <div class="mermaid-output fullscreen-output">
+          <div ref="fullscreenOutputRef" class="panzoom-target">
+            <div class="svg-rotator" :style="{ transform: 'rotate(' + modalRotation + 'deg)' }" v-html="fullscreenMermaidHTML"></div>
           </div>
         </div>
       </div>

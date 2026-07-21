@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it'
 import katex from 'katex'
+import { escapeHtml } from '@/utils/escape'
 
 function renderMath(content: string, displayMode: boolean): string {
   try {
@@ -14,15 +15,6 @@ function renderMath(content: string, displayMode: boolean): string {
     const message = error instanceof Error ? error.message : '公式渲染失败'
     return `<code class="math-error">${escapeHtml(message)}</code>`
   }
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
 }
 
 export function mathPlugin(md: MarkdownIt): void {

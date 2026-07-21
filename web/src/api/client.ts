@@ -103,19 +103,15 @@ export function zipUrl(path: string): string {
   return apiUrl('/fs/zip', { path })
 }
 
-export async function createFile(path: string): Promise<FileMetaResponse> {
-  return request<FileMetaResponse>(apiUrl('/fs/file'), {
+async function createEntry(endpoint: string, path: string): Promise<FileMetaResponse> {
+  return request<FileMetaResponse>(apiUrl(endpoint), {
     method: 'POST',
     body: JSON.stringify({ path }),
   })
 }
 
-export async function createDir(path: string): Promise<FileMetaResponse> {
-  return request<FileMetaResponse>(apiUrl('/fs/dir'), {
-    method: 'POST',
-    body: JSON.stringify({ path }),
-  })
-}
+export const createFile = (path: string) => createEntry('/fs/file', path)
+export const createDir = (path: string) => createEntry('/fs/dir', path)
 
 export async function uploadFile(path: string, body: ArrayBuffer): Promise<FileMetaResponse> {
   const headers = new Headers()

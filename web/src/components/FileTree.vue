@@ -11,7 +11,7 @@ import {
   zipUrl,
 } from '@/api/client'
 import type { FsItem } from '@/api/types'
-import { iconSvg } from '@/utils/icons'
+import { iconSvg, fileIconName } from '@/utils/icons'
 import { sortFileItems } from '@/utils/sort'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
@@ -133,32 +133,31 @@ function isChildLoading(dir: string): boolean {
   return childLoading.has(dir)
 }
 
-async function handleCreateFile(): Promise<void> {
-  const name = prompt('文件名：')
+async function createWithPrompt(
+  label: string,
+  apiCall: (path: string) => Promise<unknown>,
+  errorMsg: string,
+  parentDir = '',
+): Promise<void> {
+  const name = prompt(label)
   if (!name) return
-  const dir = workingDir.value
+  const dir = parentDir || workingDir.value
   const fullPath = dir ? `${dir}/${name}` : name
   try {
-    await createFile(fullPath)
+    await apiCall(fullPath)
     toolMessage.value = ''
     refreshDir()
   } catch (error) {
-    toolMessage.value = error instanceof Error ? error.message : '创建文件失败'
+    toolMessage.value = error instanceof Error ? error.message : errorMsg
   }
 }
 
+async function handleCreateFile(): Promise<void> {
+  await createWithPrompt('文件名：', createFile, '创建文件失败')
+}
+
 async function handleCreateDir(): Promise<void> {
-  const name = prompt('文件夹名：')
-  if (!name) return
-  const dir = workingDir.value
-  const fullPath = dir ? `${dir}/${name}` : name
-  try {
-    await createDir(fullPath)
-    toolMessage.value = ''
-    refreshDir()
-  } catch (error) {
-    toolMessage.value = error instanceof Error ? error.message : '创建文件夹失败'
-  }
+  await createWithPrompt('文件夹名：', createDir, '创建文件夹失败')
 }
 
 function handleUploadClick(): void {
@@ -230,32 +229,12 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
     {
       label: '新建文件',
       icon: 'file-text',
-      action: async () => {
-        const name = prompt('文件名：')
-        if (!name) return
-        const fullPath = parentDir ? `${parentDir}/${name}` : name
-        try {
-          await createFile(fullPath)
-          refreshDir()
-        } catch (error) {
-          toolMessage.value = error instanceof Error ? error.message : '创建文件失败'
-        }
-      },
+      action: () => createWithPrompt('文件名：', createFile, '创建文件失败', parentDir),
     },
     {
       label: '新建文件夹',
       icon: 'folder',
-      action: async () => {
-        const name = prompt('文件夹名：')
-        if (!name) return
-        const fullPath = parentDir ? `${parentDir}/${name}` : name
-        try {
-          await createDir(fullPath)
-          refreshDir()
-        } catch (error) {
-          toolMessage.value = error instanceof Error ? error.message : '创建文件夹失败'
-        }
-      },
+      action: () => createWithPrompt('文件夹名：', createDir, '创建文件夹失败', parentDir),
     },
     {
       label: '重命名',
@@ -392,20 +371,6 @@ function onDragOverBreadcrumb(path: string, event: DragEvent): void {
   dragOverDir.value = path
 }
 
-const iconName = (item: FsItem): string => {
-  if (item.kind === 'directory') return 'folder'
-  switch (item.previewKind) {
-    case 'markdown':
-      return 'file-code'
-    case 'image':
-      return 'image'
-    case 'text':
-      return 'file-text'
-    default:
-      return 'file'
-  }
-}
-
 watch(
   () => props.selectedPath,
   (path) => {
@@ -533,7 +498,7 @@ onBeforeUnmount(() => controller?.abort())
                 @click="handleRowClick(item)"
                 @contextmenu="buildContextMenu(item, $event)"
               >
-                <span class="tree-icon" aria-hidden="true" v-html="iconSvg(iconName(item), 16)"></span>
+                <span class="tree-icon" aria-hidden="true" v-html="iconSvg(fileIconName(item), 16)"></span>
                 <span class="tree-name">{{ item.name }}</span>
               </button>
               <button

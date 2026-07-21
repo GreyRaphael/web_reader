@@ -23,6 +23,8 @@
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 20px;
+  --radius-xs: 4px;
+  --disabled-opacity: 0.58;
   color-scheme: light;
 }
 

@@ -1,3 +1,5 @@
+import type { FsItem } from '@/api/types'
+
 export const ICON_PATHS: Record<string, string> = {
   home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -53,4 +55,18 @@ export function iconSvg(name: string, size = 16): string {
     return ''
   }
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${path}</svg>`
+}
+
+export function fileIconName(item: FsItem): string {
+  if (item.kind === 'directory') return 'folder'
+  switch (item.previewKind) {
+    case 'markdown':
+      return 'file-code'
+    case 'image':
+      return 'image'
+    case 'text':
+      return 'file-text'
+    default:
+      return 'file'
+  }
 }

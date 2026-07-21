@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import type { FsItem, TextResponse } from '@/api/types'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
@@ -13,7 +13,7 @@ import UnsupportedViewer from './UnsupportedViewer.vue'
 
 const MarkdownViewer = defineAsyncComponent(() => import('./MarkdownViewer.vue'))
 
-defineProps<{
+const props = defineProps<{
   item: FsItem | null
   text: TextResponse | null
   loading: boolean
@@ -26,6 +26,10 @@ const emit = defineEmits<{
   openPath: [path: string, hash: string]
   retry: []
 }>()
+
+const BADGE_MAP: Record<string, string> = { markdown: 'MD', image: 'IMG', text: 'TXT' }
+const previewMode = computed(() => getPreviewMode(props.item))
+const badgeLabel = computed(() => BADGE_MAP[previewMode.value] ?? '?')
 
 const markdownViewer = ref<InstanceType<typeof MarkdownViewerComponent> | null>(null)
 
@@ -44,7 +48,7 @@ defineExpose({ scrollToHeading })
   <section class="preview-pane" aria-label="文件预览">
     <div v-if="item" class="preview-header">
       <div class="preview-title-block">
-        <div class="file-type-badge">{{ getPreviewMode(item) === 'markdown' ? 'MD' : getPreviewMode(item) === 'image' ? 'IMG' : getPreviewMode(item) === 'text' ? 'TXT' : '?' }}</div>
+        <div class="file-type-badge">{{ badgeLabel }}</div>
         <div>
           <h1>{{ item.name }}</h1>
           <p>{{ item.path }}<span v-if="item.size !== undefined"> · {{ formatBytes(item.size) }}</span></p>
@@ -75,7 +79,7 @@ defineExpose({ scrollToHeading })
       </div>
       <template v-else>
         <MarkdownViewer
-          v-if="getPreviewMode(item!) === 'markdown' && text"
+          v-if="previewMode === 'markdown' && text"
           ref="markdownViewer"
           :content="text!.content"
           :current-path="item!.path"
@@ -85,11 +89,11 @@ defineExpose({ scrollToHeading })
           @open-path="forwardOpenPath"
         />
         <TextViewer
-          v-else-if="getPreviewMode(item!) === 'text' && text"
+          v-else-if="previewMode === 'text' && text"
           :content="text!.content"
           :encoding="text!.encoding"
         />
-        <ImageViewer v-else-if="getPreviewMode(item!) === 'image'" :item="item!" />
+        <ImageViewer v-else-if="previewMode === 'image'" :item="item!" />
         <UnsupportedViewer v-else :item="item!" />
       </template>
     </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import type { FsItem } from '@/api/types'
-import { iconSvg } from '@/utils/icons'
+import { iconSvg, fileIconName } from '@/utils/icons'
 
 defineOptions({ name: 'TreeChildren' })
 
@@ -75,15 +75,6 @@ function handleClick(item: FsItem): void {
   emit('click', item)
 }
 
-function iconName(item: FsItem): string {
-  if (item.kind === 'directory') return 'folder'
-  switch (item.previewKind) {
-    case 'markdown': return 'file-code'
-    case 'image': return 'image'
-    case 'text': return 'file-text'
-    default: return 'file'
-  }
-}
 </script>
 
 <template>
@@ -115,7 +106,7 @@ function iconName(item: FsItem): string {
         @click="handleClick(item)"
         @contextmenu="onContextMenu(item, $event)"
       >
-        <span class="tree-icon" aria-hidden="true" v-html="iconSvg(iconName(item), 12)"></span>
+        <span class="tree-icon" aria-hidden="true" v-html="iconSvg(fileIconName(item), 12)"></span>
         <span class="tree-name">{{ item.name }}</span>
       </button>
       <button

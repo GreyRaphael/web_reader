@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getFileMeta, getTextFile, logout } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
+import { storedBoolean, storedNumber } from '@/utils/storage'
 import type { FsItem, TextResponse } from '@/api/types'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
@@ -24,24 +25,8 @@ const MIN_PANEL_WIDTH = 210
 const MAX_PANEL_WIDTH = 480
 const MIN_PREVIEW_WIDTH = 360
 
-function storedBoolean(key: string, fallback: boolean): boolean {
-  try {
-    const value = window.localStorage.getItem(key)
-    return value === null ? fallback : value === 'true'
-  } catch {
-    return fallback
-  }
-}
-
 function storedWidth(key: string, fallback: number): number {
-  try {
-    const value = Number(window.localStorage.getItem(key))
-    return Number.isFinite(value) && value >= MIN_PANEL_WIDTH && value <= MAX_PANEL_WIDTH
-      ? value
-      : fallback
-  } catch {
-    return fallback
-  }
+  return storedNumber(key, fallback, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
 }
 
 const previewPane = ref<InstanceType<typeof PreviewPane> | null>(null)
@@ -218,11 +203,15 @@ function startResize(side: 'left' | 'right', event: PointerEvent): void {
   event.preventDefault()
 }
 
+function clampPanelWidth(value: number): number {
+  return Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, value))
+}
+
 function resizeMove(event: PointerEvent): void {
   if (!resizing) return
   const delta = event.clientX - resizeStartX
   const proposed = resizing === 'left' ? resizeStartWidth + delta : resizeStartWidth - delta
-  const width = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, proposed))
+  const width = clampPanelWidth(proposed)
   if (resizing === 'left') leftWidth.value = width
   else rightWidth.value = width
   constrainPanelWidths()
@@ -244,9 +233,8 @@ function resizeWithKeyboard(side: 'left' | 'right', event: KeyboardEvent): void 
   else if (event.key === 'ArrowRight') next += side === 'left' ? 16 : -16
   else return
   event.preventDefault()
-  const width = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, next))
-  if (side === 'left') leftWidth.value = width
-  else rightWidth.value = width
+  if (side === 'left') leftWidth.value = clampPanelWidth(next)
+  else rightWidth.value = clampPanelWidth(next)
   constrainPanelWidths()
 }
 

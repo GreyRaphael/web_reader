@@ -14,6 +14,7 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import { rawFileUrl } from '@/api/client'
+import { escapeHtml } from '@/utils/escape'
 import { createUniqueSlugger } from '@/utils/slug'
 import { isRelativeReference, resolveReaderTarget, resolveWorkspacePath } from '@/utils/path'
 import { mathPlugin } from './math'
@@ -87,15 +88,6 @@ function inlineText(token: Token): string {
     })
     .join('')
     .trim()
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
 }
 
 function isExternalReference(reference: string): boolean {
