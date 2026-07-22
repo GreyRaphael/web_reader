@@ -1,148 +1,219 @@
-# Web Reader
+# 📚️ Web Reader
 
-Web Reader 是一个部署在 Linux 服务器上的只读 workspace 阅读器。它使用 Go 提供认证与安全文件 API，并把 Vue 3 前端嵌入单个可执行文件中。
+Web Reader 是一个轻量、现代化、全功能包含的 Web 文件树阅读与 Markdown 编辑器。它基于 **Go 1.24** 与 **Vue 3** 开发，全量前端生产资源直接内嵌在单个二进制文件中，发布部署无需在服务器上安装 Node.js 或前端运行环境。
 
-## 功能
+---
 
-- 单管理员登录、bcrypt 密码哈希和服务端内存 session。
-- 安全限制在固定 workspace 内，拒绝路径穿越和越界符号链接。
-- 懒加载文件树，支持 Markdown、文本、日志、常见图片和其他文件下载。
-- 桌面三栏布局，移动端文件树与大纲抽屉。
-- Markdown 相对图片、内部链接、KaTeX、代码高亮、Mermaid 和文章大纲。
-- 日间、夜间和跟随系统主题。
-- 前端生产资源嵌入 Go 二进制，无需服务器安装 Node.js。
+## ✨ 核心特性
 
-首版严格只读，不提供上传、编辑、删除、移动或重命名能力。
+- **📦 单二进制部署**：前端与 Go 后端编译为单个极简可执行文件，无外部依赖，随拿随用。
+- **📚️ 动态 Workspace 模式**：
+  - 启动时自动解析并创建默认 `~/workspace` 目录（非 root 用户为 `/home/username/workspace`，root 用户为 `/root/workspace`）。
+  - 支持通过右上角 **User 菜单 ⚙️ 设置 (Settings)** 随时动态切换服务器上的任意绝对路径 workspace。
+- **✍️ 灵活 Markdown 编辑与分屏**：
+  - 支持 **👁 预览**、**✏️ 编辑** 与 **📑 分屏** 三种视图，可平滑同步双向滚动。
+  - 编辑保存（`Ctrl+S` / 点击保存）自动保持当前视图模式，不再强制重置跳转。
+- **📊 富文本与高级图表支持**：
+  - **KaTeX 数学公式**：完整支持 inline `$...$`、`\(...\)` 与 display `$$...$$`、`\[...\]`。
+  - **Mermaid 交互图表**：支持平移、缩放、旋转、导出透明/白底 PNG、复制 SVG/源码。
+  - **代码高亮**：自动识别数十种主流语言代码，带独立行号与一键复制功能。
+  - **文章大纲与相对路径**：支持 TOC 大纲联动跳转、自动解析 Markdown 相对图片与本地链接。
+- **🔒 安全保障与权限控制**：
+  - 单管理员账号认证，基于 bcrypt 密码哈希与安全的 HttpOnly 内存 session。
+  - 严密防范路径穿越（Path Traversal）与越界符号链接（Symlink Escaping）。
+- **📱 响应式 UI 与主题**：
+  - 完美适配 PC 桌面与移动端设备（移动端支持轻量抽屉导航与流畅动画）。
+  - 内置 **☀️ 日间模式**、**🌙 夜间模式** 与 **💻 跟随系统主题**。
 
-## 环境要求
+---
 
-- Go 1.24（`go.mod` 中的 toolchain 为 `go1.24.4`）。
-- Node.js 20+。
-- pnpm 11。项目默认使用 `/home/gewei/.local/share/pnpm/bin/pnpm`，可通过 `make PNPM=/path/to/pnpm ...` 覆盖。
+## 🛠️ 环境要求（仅源码编译）
 
-## 安装与验证
+若直接使用 release 发布的预编译二进制文件，**无需安装任何依赖**。若需从源码构建：
+
+- **Go 1.24+**
+- **Node.js 20+**
+- **pnpm 11+**
+
+---
+
+## 🚀 普通 Linux 用户快速部署指南
+
+适合绝大多数个人 Linux 服务器、虚拟机或 WSL 用户，无需 root 权限即可快速启动使用。
+
+### 1. 下载预编译二进制
+
+从 GitHub Releases 页面下载适合您系统架构的最新压缩包并解压：
 
 ```bash
-make install
-make lint
-make test
-make build
+# 示例：Linux x86_64
+wget https://github.com/<owner>/web_reader/releases/download/v1.0.0/web-reader-v1.0.0-linux-amd64.tar.gz
+tar -zxvf web-reader-v1.0.0-linux-amd64.tar.gz
+cd dist_bin
 ```
 
-`make build` 会先构建前端，再生成静态 Go 二进制：
+### 2. 生成管理员密码哈希
+
+使用交互式命令生成加密密码，避免明文密码出现在 shell 历史记录中：
+
+```bash
+./web-reader hash-password
+```
+
+根据提示输入并确认密码，程序将输出类似于 `$2a$10$e8Z...` 的 bcrypt 哈希字符串。复制该哈希备用。
+
+### 3. 运行服务
+
+#### 方式 A：直接前台启动
+
+无需显式指定 `--workspace`，程序会自动在当前用户家目录下创建并使用 `~/workspace` 目录：
+
+```bash
+export WEB_READER_ADMIN_PASSWORD_HASH='$2a$10$e8Z...'
+./web-reader
+```
+
+控制台将输出：
 
 ```text
-build/web-reader
+2026/07/22 16:30:00 Workspace dir resolved: /home/username/workspace
+2026/07/22 16:30:00 Web Reader listening on http://0.0.0.0:8848
 ```
 
-构建过程中 `internal/webui/dist` 会临时写入生产资源；Go 编译完成后会自动恢复可提交的占位文件。不要直接发布只执行 `go build` 得到的二进制，因为它可能只包含占位页面。
+此时打开浏览器访问 `http://<your-server-ip>:8848` 即可使用管理员账号（默认 `admin`）登录。
 
-### E2E
-
-先安装 Playwright 浏览器：
+#### 方式 B：nohup 后台运行
 
 ```bash
-/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install chromium firefox webkit
-make test-e2e
-
-# 安装完整系统依赖后执行包含桌面 Firefox 和移动 WebKit 的矩阵
-/home/gewei/.local/share/pnpm/bin/pnpm --dir web test:e2e:all
+export WEB_READER_ADMIN_PASSWORD_HASH='$2a$10$e8Z...'
+nohup ./web-reader > web-reader.log 2>&1 &
 ```
 
-WebKit 还需要 Playwright 列出的 GTK、GStreamer 等系统库。在 Debian/Ubuntu 上可由具备 sudo 权限的管理员执行：
+#### 方式 C：普通用户 systemd 服务（推荐，支持开机自启）
 
-```bash
-/home/gewei/.local/share/pnpm/bin/pnpm --dir web exec playwright install-deps chromium firefox webkit
-```
+无需 root / sudo 权限即可建立持久化守护进程：
 
-## 创建管理员密码哈希
+1. 创建用户服务目录并新建配置文件：
+   ```bash
+   mkdir -p ~/.config/systemd/user/
+   nano ~/.config/systemd/user/web-reader.service
+   ```
 
-使用交互输入，避免明文密码进入 shell history：
+2. 写入以下内容（替换密码哈希与路径）：
+   ```ini
+   [Unit]
+   Description=Web Reader Service
+   After=network.target
 
-```bash
-./build/web-reader hash-password
-```
+   [Service]
+   Type=simple
+   ExecStart=%h/bin/web-reader --addr 0.0.0.0:8848
+   Environment="WEB_READER_ADMIN_PASSWORD_HASH=$2a$10$e8Z..."
+   Restart=always
+   RestartSec=5s
 
-命令会把 bcrypt 哈希输出到标准输出。将哈希写入受限环境文件，不要提交到仓库。
+   [Install]
+   WantedBy=default.target
+   ```
 
-## 启动
+3. 启动服务并开启开机自启（需开启用户 session 驻留）：
+   ```bash
+   systemctl --user daemon-reload
+   systemctl --user enable --now web-reader
+   
+   # 允许用户离线时后台服务继续运行
+   loginctl enable-linger $USER
+   ```
 
-```bash
-export WEB_READER_WORKSPACE=/srv/books
-export WEB_READER_ADMIN_PASSWORD_HASH='$2a$...'
-./build/web-reader
-```
+4. 查看服务状态：
+   ```bash
+   systemctl --user status web-reader
+   ```
 
-默认访问地址为 `http://server-ip:8848`，健康检查为：
+---
 
-```bash
-curl http://127.0.0.1:8848/healthz
-```
+## ⚙️ 进阶配置说明
 
-也可使用命令行参数：
+服务支持通过命令行参数或环境变量进行配置。命令行参数优先级高于环境变量。
 
-```bash
-./build/web-reader \
-  --addr 0.0.0.0:8848 \
-  --workspace /srv/books \
-  --admin-user admin \
-  --password-hash '$2a$...'
-```
-
-命令行参数优先于环境变量。
-
-## 配置
-
-| 参数 | 环境变量 | 默认值 | 说明 |
+| 命令行参数 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `--addr` | `WEB_READER_ADDR` | `0.0.0.0:8848` | HTTP 监听地址 |
-| `--workspace` | `WEB_READER_WORKSPACE` | 无 | 必填，只读 workspace |
-| `--admin-user` | `WEB_READER_ADMIN_USERNAME` | `admin` | 管理员用户名 |
-| `--password-hash` | `WEB_READER_ADMIN_PASSWORD_HASH` | 无 | 必填，bcrypt 哈希 |
-| `--session-ttl` | `WEB_READER_SESSION_TTL` | `24h` | 内存 session 有效期 |
-| `--max-text-size` | `WEB_READER_MAX_TEXT_SIZE` | `10MiB` | 文本在线预览上限 |
-| `--secure-cookie` | `WEB_READER_SECURE_COOKIE` | `false` | HTTPS 部署时设为 `true` |
+| `--addr` | `WEB_READER_ADDR` | `0.0.0.0:8848` | HTTP 服务监听地址 |
+| `--workspace` | `WEB_READER_WORKSPACE` | `~/workspace` | 只读文件空间根目录（自动展开波浪号 `~`） |
+| `--admin-user` | `WEB_READER_ADMIN_USERNAME` | `admin` | 管理员登录用户名 |
+| `--password-hash` | `WEB_READER_ADMIN_PASSWORD_HASH` | 无 | **必填**，bcrypt 加密密码哈希 |
+| `--session-ttl` | `WEB_READER_SESSION_TTL` | `24h` | 登录 Session 有效期 |
+| `--max-text-size` | `WEB_READER_MAX_TEXT_SIZE` | `10MiB` | 在线文本预览与编辑的文件大小上限 |
+| `--secure-cookie` | `WEB_READER_SECURE_COOKIE` | `false` | 使用 HTTPS 部署时请开启该参数 |
 
-Session 保存在进程内存中，服务重启后用户需要重新登录。
+### 💡 在线动态变更 Workspace
 
-## 本地开发
+登录 Web UI 后，点击右上角管理员用户名 -> **⚙️ 设置 (Settings)**，在弹出的控制面板中可直接输入服务器上的任意绝对路径并保存。后端将自动校验并切换生效，且会将您的设置持久化保存在 `~/.config/web-reader/settings.json` 中。
 
-先准备 workspace 和密码哈希环境变量，然后分别启动后端与前端：
+---
 
-```bash
-make dev-backend
-make dev-frontend
-```
+## 🛡️ 系统级 (root) 部署参考
 
-Vite 会把 `/api` 代理到 `http://localhost:8848`。
-
-## systemd 部署
-
-示例文件位于：
+对于需要全系统统一管理的生产环境，可参考 repository 内提供的系统级 systemd 模板：
 
 - `deploy/web-reader.service`
 - `deploy/web-reader.env.example`
 
-推荐步骤：
+部署步骤：
 
 ```bash
+# 1. 创建专用独立系统用户
 sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin web-reader
+
+# 2. 安装可执行文件与目录结构
 sudo install -d -o root -g root /opt/web-reader
 sudo install -m 0755 build/web-reader /opt/web-reader/web-reader
 sudo install -d -o root -g web-reader -m 0750 /etc/web-reader
 sudo install -o root -g web-reader -m 0640 deploy/web-reader.env.example /etc/web-reader/web-reader.env
 sudo install -m 0644 deploy/web-reader.service /etc/systemd/system/web-reader.service
+
+# 3. 编辑配置并启动
+sudo nano /etc/web-reader/web-reader.env
 sudo systemctl daemon-reload
 sudo systemctl enable --now web-reader
 ```
 
-编辑 `/etc/web-reader/web-reader.env`，设置真实 workspace 和密码哈希。运行用户只需要 workspace 的读取与目录遍历权限。
+---
 
-## 安全说明
+## 🛠️ 本地开发与从源码构建
 
-- 直接通过公网 HTTP 访问会明文传输密码和 session Cookie。生产环境应使用 Caddy/Nginx HTTPS、VPN（如 WireGuard/Tailscale）或严格的防火墙来源限制。
-- HTTPS 终止后应设置 `WEB_READER_SECURE_COOKIE=true`。
-- 环境文件包含密码哈希，建议权限不高于 `0640`，并限制为 root 与服务组可读。
-- workspace 中的 HTML、JavaScript、SVG 等主动内容默认下载；raw 响应使用 sandbox CSP 和 `nosniff`。
-- 服务不会跟随指向 workspace 外部的符号链接。
-- 不要赋予 `web-reader` 运行用户对 workspace 的写权限。
+```bash
+# 1. 安装前端依赖
+make install
+
+# 2. 校验代码格式与 Linter
+make lint
+
+# 3. 运行前端与后端单元测试
+make test
+
+# 4. 一键构建包含生产前端资源的二进制文件
+make build
+```
+
+编译产物位于 `build/web-reader`。
+
+---
+
+## 📦 GitHub Release 跨平台构建说明
+
+仓库包含了 `.github/workflows/release.yml` 自动化构建工作流。当推送形如 `v1.x.x` 的 Git Tag 时，GitHub Actions 会自动编译生成以下架构的可执行压缩包并自动发布 Release：
+
+- **Windows (x64)**: `web-reader-vX.Y.Z-windows-amd64.zip`
+- **Linux (x64)**: `web-reader-vX.Y.Z-linux-amd64.tar.gz`
+- **Linux (ARM64)**: `web-reader-vX.Y.Z-linux-arm64.tar.gz`
+- **macOS (Intel)**: `web-reader-vX.Y.Z-darwin-amd64.tar.gz`
+- **macOS (Apple Silicon)**: `web-reader-vX.Y.Z-darwin-arm64.tar.gz`
+
+---
+
+## 🔐 安全须知
+
+1. **HTTPS 建议**：明文 HTTP 会暴露 Session Cookie。在公网环境部署时，强烈建议配置 Nginx / Caddy 反向代理并开启 HTTPS（同时设置 `WEB_READER_SECURE_COOKIE=true`）。
+2. **密码哈希保护**：不要将密码明文或环境变量中的密码哈希提交至公共代码仓库。
+3. **符号链接防护**：后端防范任何指向 Workspace 根目录外部的符号链接或相对路径穿透行为。

@@ -1,4 +1,4 @@
-PNPM ?= /home/gewei/.local/share/pnpm/bin/pnpm
+PNPM ?= pnpm
 WEB_DIR := web
 DIST_DIR := internal/webui/dist
 PLACEHOLDER := internal/webui/placeholder.html

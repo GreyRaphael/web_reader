@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            binary_name: web-reader.exe
+            archive_name: web-reader-${{ github.ref_name }}-windows-amd64.zip
+          - goos: linux
+            goarch: amd64
+            binary_name: web-reader
+            archive_name: web-reader-${{ github.ref_name }}-linux-amd64.tar.gz
+          - goos: linux
+            goarch: arm64
+            binary_name: web-reader
+            archive_name: web-reader-${{ github.ref_name }}-linux-arm64.tar.gz
+          - goos: darwin
+            goarch: amd64
+            binary_name: web-reader
+            archive_name: web-reader-${{ github.ref_name }}-darwin-amd64.tar.gz
+          - goos: darwin
+            goarch: arm64
+            binary_name: web-reader
+            archive_name: web-reader-${{ github.ref_name }}-darwin-arm64.tar.gz
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.24
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          check-latest: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: 'web/pnpm-lock.yaml'
+
+      - name: Install Frontend Dependencies
+        run: pnpm --prefix web install
+
+      - name: Build Frontend
+        run: pnpm --prefix web build
+
+      - name: Build Go Binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist_bin
+          go build -trimpath -ldflags="-s -w" -o dist_bin/${{ matrix.binary_name }} ./cmd/web-reader
+
+      - name: Create Release Archive
+        run: |
+          cd dist_bin
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip "../${{ matrix.archive_name }}" ${{ matrix.binary_name }}
+          else
+            tar -czvf "../${{ matrix.archive_name }}" ${{ matrix.binary_name }}
+          fi
+          cd ..
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive_name }}
+          generate_release_notes: true
