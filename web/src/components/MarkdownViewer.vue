@@ -305,12 +305,32 @@ function injectCodeCopyButtons(): void {
   }
 }
 
-function showMermaidError(diagram: HTMLElement, message: string): void {
+function showMermaidError(diagram: HTMLElement, message: string, sourceCode?: string): void {
   const output = diagram.querySelector<HTMLElement>('.mermaid-output')
   if (!output) return
   output.removeAttribute('aria-busy')
-  output.classList.add('mermaid-error')
-  output.textContent = message
+  output.classList.add('mermaid-render-error')
+
+  const lineMatch = message.match(/on line (\d+)/i) || message.match(/line (\d+)/i)
+  const lineNotice = lineMatch ? `Parse error on line ${lineMatch[1]}` : 'Parse error'
+
+  const rawSource =
+    sourceCode || diagram.querySelector<HTMLElement>('.mermaid-source')?.textContent || ''
+
+  output.innerHTML = `
+    <div class="mermaid-error-bar">
+      <span class="error-icon">⚠️</span>
+      <span class="error-title">${DOMPurify.sanitize(lineNotice)}</span>
+    </div>
+    <div class="mermaid-error-source">
+      <pre class="language-mermaid"><code class="language-mermaid">${DOMPurify.sanitize(rawSource)}</code></pre>
+    </div>
+  `
+
+  if (!diagram.querySelector('.mermaid-toolbar')) {
+    const toolbarHTML = renderToolbarHTML(['copy-mermaid'])
+    diagram.insertAdjacentHTML('beforeend', toolbarHTML)
+  }
 }
 
 function preserveMermaidSize(output: HTMLElement): void {
@@ -519,8 +539,8 @@ async function renderMermaidDiagrams(): Promise<void> {
         }
       } catch (error) {
         if (run !== mermaidRun) return
-        output.classList.add('mermaid-error')
-        output.textContent = `图表渲染失败：${error instanceof Error ? error.message : '语法错误'}`
+        const errMsg = error instanceof Error ? error.message : String(error)
+        showMermaidError(diagram, errMsg, source)
       } finally {
         output.removeAttribute('aria-busy')
       }

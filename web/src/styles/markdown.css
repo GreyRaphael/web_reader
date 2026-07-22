@@ -494,6 +494,47 @@
   white-space: pre-wrap;
 }
 
+.mermaid-render-error {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: 7px;
+  background: var(--surface-muted);
+  overflow: hidden;
+  text-align: left;
+}
+
+.mermaid-error-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised));
+  border-bottom: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mermaid-error-source {
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+
+.mermaid-error-source pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 600px) {
   .markdown-body {
     padding-top: 28px;
