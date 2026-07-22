@@ -30,6 +30,31 @@ const isSaving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
 
+const popoverText = ref('')
+const popoverIsError = ref(false)
+const popoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+let popoverTimer: number | null = null
+
+function showContextualToast(btn: HTMLButtonElement, message: string, isError = false) {
+  const rect = btn.getBoundingClientRect()
+  const top = Math.max(10, rect.top - 8)
+  const left = rect.left + rect.width / 2
+
+  popoverStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`,
+  }
+
+  if (popoverTimer) clearTimeout(popoverTimer)
+  popoverText.value = message
+  popoverIsError.value = isError
+
+  popoverTimer = window.setTimeout(() => {
+    popoverText.value = ''
+    popoverTimer = null
+  }, 2000)
+}
+
 const isDirty = computed(() => editableContent.value !== props.content)
 
 const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
@@ -104,6 +129,7 @@ let scrollContainer: HTMLElement | null = null
 
 const panzoomInstances = new Map<HTMLElement, PanZoom>()
 const fullscreenMermaidHTML = ref<string>('')
+const fullscreenMermaidSource = ref<string>('')
 const modalRotation = ref<number>(0)
 const fullscreenOutputRef = ref<HTMLElement | null>(null)
 let modalPanzoom: PanZoom | null = null
@@ -157,15 +183,48 @@ function closeFullscreen() {
     modalPanzoom = null
   }
   fullscreenMermaidHTML.value = ''
+  fullscreenMermaidSource.value = ''
   modalRotation.value = 0
 }
 
-function handleModalAction(action: string) {
-  if (action === 'minimize' || action === 'close') closeFullscreen()
-  else if (action === 'rotate') {
+async function handleModalAction(action: string, btnEvent?: MouseEvent) {
+  const btn = btnEvent?.currentTarget as HTMLButtonElement | undefined
+  if (action === 'minimize' || action === 'close') {
+    closeFullscreen()
+  } else if (action === 'rotate') {
     modalRotation.value += 90
     if (modalPanzoom && fullscreenOutputRef.value) {
       handleZoomAction(modalPanzoom, fullscreenOutputRef.value, 'reset', true)
+    }
+  } else if (action === 'copy-mermaid') {
+    if (fullscreenMermaidSource.value) {
+      navigator.clipboard.writeText(fullscreenMermaidSource.value).then(
+        () => btn && showButtonFeedback(btn, '已复制 Mermaid 源码'),
+        () => btn && showButtonFeedback(btn, '复制源码失败', true),
+      )
+    }
+  } else if (action === 'copy-image') {
+    const svg = fullscreenOutputRef.value?.querySelector('svg')
+    if (svg) {
+      svgToPngBlob(svg, { transparent: false }).then(
+        async (blob) => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            btn && showButtonFeedback(btn, '已复制 PNG 图片 (白底)')
+          } catch {
+            btn && showButtonFeedback(btn, '剪切板写入受限', true)
+          }
+        },
+        () => btn && showButtonFeedback(btn, '图片转换失败', true),
+      )
+    }
+  } else if (action === 'export-image') {
+    const svg = fullscreenOutputRef.value?.querySelector('svg')
+    if (svg) {
+      exportPngImage(svg, 'mermaid-diagram.png', { transparent: true }).then(
+        () => btn && showButtonFeedback(btn, '已下载透明 PNG 图片'),
+        () => btn && showButtonFeedback(btn, '导出 PNG 失败', true),
+      )
     }
   } else if (modalPanzoom && fullscreenOutputRef.value) {
     handleZoomAction(modalPanzoom, fullscreenOutputRef.value, action, true)
@@ -233,12 +292,13 @@ function injectCodeCopyButtons(): void {
         await navigator.clipboard.writeText(code)
         btn.classList.add('copied')
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['check']}</svg> 已复制`
+        showContextualToast(btn, '已复制代码块内容')
         setTimeout(() => {
           btn.classList.remove('copied')
           btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['clipboard']}</svg> 复制`
         }, 2000)
       } catch {
-        // clipboard unavailable
+        showContextualToast(btn, '代码复制失败', true)
       }
     })
     block.appendChild(btn)
@@ -275,12 +335,15 @@ function renderToolbarHTML(actions: string[]): string {
 
 function actionTitle(action: string): string {
   const titles: Record<string, string> = {
-    'zoom-in': 'Zoom In',
-    'zoom-out': 'Zoom Out',
-    reset: 'Reset View',
-    maximize: 'Maximize',
-    rotate: 'Rotate 90°',
-    minimize: 'Minimize',
+    'zoom-in': '放大',
+    'zoom-out': '缩小',
+    reset: '重置视角',
+    'copy-mermaid': '复制 Mermaid 源码',
+    'copy-image': '复制 PNG 图片 (白底)',
+    'export-image': '导出透明 PNG 图片',
+    maximize: '全屏查看',
+    rotate: '旋转 90°',
+    minimize: '关闭全屏',
   }
   return titles[action] ?? action
 }
@@ -290,8 +353,91 @@ function actionIcon(action: string): string {
     reset: 'rotate-ccw',
     rotate: 'rotate-cw',
     minimize: 'minimize',
+    'copy-mermaid': 'file-code',
+    'copy-image': 'copy',
+    'export-image': 'download',
   }
   return map[action] ?? action
+}
+
+async function svgToPngBlob(
+  svgElement: SVGSVGElement,
+  options: { transparent?: boolean } = {},
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const clone = svgElement.cloneNode(true) as SVGSVGElement
+    const viewBox = svgElement.viewBox.baseVal
+    const width = viewBox && viewBox.width > 0 ? viewBox.width : svgElement.clientWidth || 800
+    const height = viewBox && viewBox.height > 0 ? viewBox.height : svgElement.clientHeight || 600
+
+    clone.setAttribute('width', `${width}`)
+    clone.setAttribute('height', `${height}`)
+
+    const svgString = new XMLSerializer().serializeToString(clone)
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const scale = 2
+      canvas.width = width * scale
+      canvas.height = height * scale
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        reject(new Error('Canvas 不可用'))
+        return
+      }
+      if (!options.transparent) {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
+      ctx.scale(scale, scale)
+      ctx.drawImage(img, 0, 0, width, height)
+      URL.revokeObjectURL(url)
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('转换 Blob 失败'))
+      }, 'image/png')
+    }
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url)
+      reject(err)
+    }
+    img.src = url
+  })
+}
+
+async function exportPngImage(
+  svgElement: SVGSVGElement,
+  filename = 'mermaid-diagram.png',
+  options: { transparent?: boolean } = { transparent: true },
+): Promise<void> {
+  const blob = await svgToPngBlob(svgElement, options)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function showButtonFeedback(btn: HTMLButtonElement, successMessage: string, isError = false) {
+  const originalTitle = btn.getAttribute('title') || ''
+  btn.setAttribute('title', successMessage)
+  btn.style.color = isError ? 'var(--danger)' : 'var(--accent-strong)'
+  showContextualToast(btn, successMessage, isError)
+  setTimeout(() => {
+    btn.setAttribute('title', originalTitle)
+    btn.style.color = ''
+  }, 2000)
 }
 
 async function renderMermaidDiagrams(): Promise<void> {
@@ -348,7 +494,15 @@ async function renderMermaidDiagrams(): Promise<void> {
         })
         preserveMermaidSize(output)
 
-        const toolbarHTML = renderToolbarHTML(['zoom-in', 'zoom-out', 'reset', 'maximize'])
+        const toolbarHTML = renderToolbarHTML([
+          'zoom-in',
+          'zoom-out',
+          'reset',
+          'copy-mermaid',
+          'copy-image',
+          'export-image',
+          'maximize',
+        ])
         if (!diagram.querySelector('.mermaid-toolbar')) {
           diagram.insertAdjacentHTML('beforeend', toolbarHTML)
         }
@@ -426,8 +580,41 @@ function handleClick(event: MouseEvent): void {
     const action = mermaidBtn.dataset.action
     if (action === 'maximize') {
       const svgHTML = mermaidDiagram.querySelector('.mermaid-output')?.innerHTML
+      const sourceCode = mermaidDiagram.querySelector<HTMLElement>('.mermaid-source')?.textContent ?? ''
       if (svgHTML) {
         fullscreenMermaidHTML.value = svgHTML
+        fullscreenMermaidSource.value = sourceCode
+      }
+    } else if (action === 'copy-mermaid') {
+      const source = mermaidDiagram.querySelector<HTMLElement>('.mermaid-source')?.textContent ?? ''
+      if (source) {
+        navigator.clipboard.writeText(source).then(
+          () => showButtonFeedback(mermaidBtn, '已复制 Mermaid 源码'),
+          () => showButtonFeedback(mermaidBtn, '复制源码失败', true),
+        )
+      }
+    } else if (action === 'copy-image') {
+      const svg = mermaidDiagram.querySelector<SVGSVGElement>('.mermaid-output svg')
+      if (svg) {
+        svgToPngBlob(svg, { transparent: false }).then(
+          async (blob) => {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+              showButtonFeedback(mermaidBtn, '已复制 PNG 图片 (白底)')
+            } catch {
+              showButtonFeedback(mermaidBtn, '剪切板写入受限', true)
+            }
+          },
+          () => showButtonFeedback(mermaidBtn, '图片转换失败', true),
+        )
+      }
+    } else if (action === 'export-image') {
+      const svg = mermaidDiagram.querySelector<SVGSVGElement>('.mermaid-output svg')
+      if (svg) {
+        exportPngImage(svg, 'mermaid-diagram.png', { transparent: true }).then(
+          () => showButtonFeedback(mermaidBtn, '已下载透明 PNG 图片'),
+          () => showButtonFeedback(mermaidBtn, '导出 PNG 失败', true),
+        )
       }
     } else if (action) {
       const pz = panzoomInstances.get(mermaidDiagram)
@@ -576,6 +763,19 @@ onBeforeUnmount(() => {
     </div>
 
     <Teleport to="body">
+      <Transition name="popover-toast">
+        <div
+          v-if="popoverText"
+          class="mermaid-popover-toast"
+          :class="{ error: popoverIsError }"
+          :style="popoverStyle"
+          role="status"
+        >
+          <span>{{ popoverText }}</span>
+          <div class="popover-arrow"></div>
+        </div>
+      </Transition>
+
       <dialog v-if="fullscreenMermaidHTML" class="mermaid-modal" open @close="closeFullscreen">
         <div class="mermaid-modal-backdrop" @click="closeFullscreen"></div>
         <div class="mermaid-modal-content">
@@ -583,40 +783,64 @@ onBeforeUnmount(() => {
             <button
               class="mermaid-btn"
               data-action="zoom-in"
-              title="Zoom In"
-              @click="handleModalAction('zoom-in')"
+              title="放大"
+              @click="handleModalAction('zoom-in', $event)"
             >
               <svg viewBox="0 0 24 24" v-html="ICON_PATHS['zoom-in']"></svg>
             </button>
             <button
               class="mermaid-btn"
               data-action="zoom-out"
-              title="Zoom Out"
-              @click="handleModalAction('zoom-out')"
+              title="缩小"
+              @click="handleModalAction('zoom-out', $event)"
             >
               <svg viewBox="0 0 24 24" v-html="ICON_PATHS['zoom-out']"></svg>
             </button>
             <button
               class="mermaid-btn"
               data-action="reset"
-              title="Reset View"
-              @click="handleModalAction('reset')"
+              title="重置视角"
+              @click="handleModalAction('reset', $event)"
             >
               <svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-ccw']"></svg>
             </button>
             <button
               class="mermaid-btn"
+              data-action="copy-mermaid"
+              title="复制 Mermaid 源码"
+              @click="handleModalAction('copy-mermaid', $event)"
+            >
+              <svg viewBox="0 0 24 24" v-html="ICON_PATHS['file-code']"></svg>
+            </button>
+            <button
+              class="mermaid-btn"
+              data-action="copy-image"
+              title="复制 PNG 图片 (白底)"
+              @click="handleModalAction('copy-image', $event)"
+            >
+              <svg viewBox="0 0 24 24" v-html="ICON_PATHS['copy']"></svg>
+            </button>
+            <button
+              class="mermaid-btn"
+              data-action="export-image"
+              title="导出透明 PNG 图片"
+              @click="handleModalAction('export-image', $event)"
+            >
+              <svg viewBox="0 0 24 24" v-html="ICON_PATHS['download']"></svg>
+            </button>
+            <button
+              class="mermaid-btn"
               data-action="rotate"
-              title="Rotate 90°"
-              @click="handleModalAction('rotate')"
+              title="旋转 90°"
+              @click="handleModalAction('rotate', $event)"
             >
               <svg viewBox="0 0 24 24" v-html="ICON_PATHS['rotate-cw']"></svg>
             </button>
             <button
               class="mermaid-btn"
               data-action="minimize"
-              title="Minimize"
-              @click="handleModalAction('minimize')"
+              title="关闭全屏"
+              @click="handleModalAction('minimize', $event)"
             >
               <svg viewBox="0 0 24 24" v-html="ICON_PATHS['minimize']"></svg>
             </button>
@@ -775,5 +999,49 @@ onBeforeUnmount(() => {
 .preview-pane-col {
   height: 100%;
   overflow-y: auto;
+}
+
+.mermaid-popover-toast {
+  position: fixed;
+  z-index: 100000;
+  transform: translate(-50%, -100%);
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #1e1e2e;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.mermaid-popover-toast.error {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.popover-arrow {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+}
+
+.popover-toast-enter-active,
+.popover-toast-leave-active {
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.popover-toast-enter-from,
+.popover-toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -85%) scale(0.92);
 }
 </style>
