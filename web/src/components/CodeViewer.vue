@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ICON_PATHS } from '@/utils/icons'
-import { getLanguageFromPath, highlightCode } from '@/utils/prism'
+import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
 
 const props = defineProps<{
   content: string
   path: string
 }>()
 
+const LARGE_FILE_BYTES = 100 * 1024 // 100 KB
+const LARGE_FILE_LINES = 3000
+
 const copied = ref(false)
+const forceHighlight = ref(false)
+const isHighlighting = ref(false)
+const highlightedHtml = ref('')
 
 const language = computed(() => getLanguageFromPath(props.path))
 const languageBadge = computed(() => {
@@ -21,9 +27,39 @@ const lineCount = computed(() => {
   return props.content.split('\n').length
 })
 
-const highlightedHtml = computed(() => {
-  return highlightCode(props.content, language.value)
+const lineNumbersText = computed(() => {
+  const count = lineCount.value
+  if (count <= 0) return ''
+  let result = ''
+  for (let i = 1; i <= count; i++) {
+    result += i + '\n'
+  }
+  return result
 })
+
+const isLargeFile = computed(() => {
+  return (props.content ? props.content.length : 0) > LARGE_FILE_BYTES || lineCount.value > LARGE_FILE_LINES
+})
+
+const isHighPerformanceMode = computed(() => {
+  return isLargeFile.value && !forceHighlight.value
+})
+
+function updateHighlighting() {
+  if (isHighPerformanceMode.value) {
+    highlightedHtml.value = escapeHtml(props.content || '')
+    isHighlighting.value = false
+    return
+  }
+
+  isHighlighting.value = true
+  setTimeout(() => {
+    highlightedHtml.value = highlightCode(props.content || '', language.value)
+    isHighlighting.value = false
+  }, 0)
+}
+
+watch([() => props.content, () => props.path, forceHighlight], updateHighlighting, { immediate: true })
 
 async function copyCode(): Promise<void> {
   try {
@@ -44,34 +80,46 @@ async function copyCode(): Promise<void> {
       <div class="code-viewer-meta">
         <span class="code-badge">{{ languageBadge }}</span>
         <span class="code-lines">{{ lineCount }} 行</span>
+        <span v-if="isHighPerformanceMode" class="perf-badge" title="超大文件已开启高性能纯文本渲染">
+          ⚡ 纯文本高性能模式
+        </span>
       </div>
-      <button
-        type="button"
-        class="code-copy-btn"
-        :class="{ copied }"
-        aria-label="复制代码"
-        @click="copyCode"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          style="display: inline-block; vertical-align: -0.15em; flex-shrink: 0"
-          v-html="copied ? ICON_PATHS['check'] : ICON_PATHS['clipboard']"
-        ></svg>
-        <span>{{ copied ? '已复制' : '复制' }}</span>
-      </button>
+      <div class="code-viewer-actions">
+        <button
+          v-if="isHighPerformanceMode"
+          type="button"
+          class="secondary-button enable-highlight-btn"
+          @click="forceHighlight = true"
+        >
+          开启语法高亮
+        </button>
+        <span v-else-if="isHighlighting" class="highlighting-spinner">高亮处理中…</span>
+        <button
+          type="button"
+          class="code-copy-btn"
+          :class="{ copied }"
+          aria-label="复制代码"
+          @click="copyCode"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="display: inline-block; vertical-align: -0.15em; flex-shrink: 0"
+            v-html="copied ? ICON_PATHS['check'] : ICON_PATHS['clipboard']"
+          ></svg>
+          <span>{{ copied ? '已复制' : '复制' }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="code-viewer-body scroll-surface" tabindex="0">
-      <div class="code-gutter" aria-hidden="true">
-        <span v-for="n in lineCount" :key="n" class="line-number">{{ n }}</span>
-      </div>
+      <pre class="code-gutter" aria-hidden="true">{{ lineNumbersText }}</pre>
       <pre
         class="code-content"
         :class="`language-${language}`"
@@ -101,7 +149,8 @@ async function copyCode(): Promise<void> {
   background: var(--surface-raised);
 }
 
-.code-viewer-meta {
+.code-viewer-meta,
+.code-viewer-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -117,6 +166,28 @@ async function copyCode(): Promise<void> {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
+}
+
+.perf-badge {
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  color: var(--accent-strong);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.enable-highlight-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.highlighting-spinner {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
 }
 
 .code-lines {
@@ -140,8 +211,8 @@ async function copyCode(): Promise<void> {
 }
 
 .code-gutter {
-  display: flex;
-  flex-direction: column;
+  display: block;
+  margin: 0;
   padding: 1.15em 0.8em;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-raised) 60%, transparent);
@@ -151,10 +222,7 @@ async function copyCode(): Promise<void> {
   line-height: 1.65;
   text-align: right;
   user-select: none;
-}
-
-.line-number {
-  min-width: 2.2em;
+  white-space: pre;
 }
 
 .code-content {
