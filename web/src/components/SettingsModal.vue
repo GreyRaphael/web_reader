@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { getWorkspace, setWorkspace } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
 
+const props = defineProps<{ username?: string }>()
+
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'updated', path: string): void
@@ -64,8 +66,8 @@ onMounted(() => {
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title">
       <div class="modal-header">
         <h3 id="settings-dialog-title" class="modal-title">
-          <span v-html="iconSvg('settings', 18)"></span>
-          工作区设置 (Settings)
+          <span class="emoji-icon">⚙️</span>
+          设置 (Settings)
         </h3>
         <button
           class="icon-button compact close-btn"
@@ -78,6 +80,14 @@ onMounted(() => {
       </div>
 
       <div class="modal-body">
+        <div class="profile-card">
+          <div class="avatar-circle" v-html="iconSvg('user', 18)"></div>
+          <div class="profile-details">
+            <span class="profile-title">当前账号 (User Profile)</span>
+            <span class="profile-username">{{ props.username || 'admin' }}</span>
+          </div>
+        </div>
+
         <label for="workspace-path-input" class="form-label">
           服务器工作区绝对路径 (Server Workspace Path)
         </label>
@@ -202,6 +212,47 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface-muted, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.avatar-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--primary, #3b82f6);
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-title {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.profile-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
 }
 
 .form-label {

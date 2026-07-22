@@ -414,12 +414,11 @@ onBeforeUnmount(() => {
           <button class="user-avatar" type="button" @click="userMenuOpen = !userMenuOpen" :title="props.username" v-html="iconSvg('user', 16)"></button>
           <Transition name="dropdown">
             <div v-if="userMenuOpen" class="user-dropdown">
-              <div class="user-dropdown-header">{{ props.username }}</div>
               <button class="user-dropdown-btn" type="button" @click="openSettings">
-                <span v-html="iconSvg('settings', 14)"></span>
+                <span>⚙️</span>
                 设置 (Settings)
               </button>
-              <button class="user-dropdown-btn" type="button" :disabled="signingOut" @click="signOut">
+              <button class="user-dropdown-btn danger" type="button" :disabled="signingOut" @click="signOut">
                 <span v-html="iconSvg('log-out', 14)"></span>
                 {{ signingOut ? '退出中…' : '退出登录' }}
               </button>
@@ -510,6 +509,7 @@ onBeforeUnmount(() => {
 
     <SettingsModal
       v-if="showSettingsModal"
+      :username="props.username"
       @close="showSettingsModal = false"
       @updated="handleWorkspaceUpdated"
     />
