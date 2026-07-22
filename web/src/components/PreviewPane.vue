@@ -3,8 +3,6 @@ import { computed, defineAsyncComponent, ref } from 'vue'
 import type { FsItem, TextResponse } from '@/api/types'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
-import { formatBytes } from '@/utils/format'
-import { getLanguageFromPath } from '@/utils/prism'
 import { getPreviewMode } from '@/utils/preview'
 import CodeViewer from './CodeViewer.vue'
 import ImageViewer from './ImageViewer.vue'
@@ -28,17 +26,6 @@ const emit = defineEmits<{
 }>()
 
 const previewMode = computed(() => getPreviewMode(props.item))
-const badgeLabel = computed(() => {
-  if (!props.item) return '?'
-  if (previewMode.value === 'markdown') return 'MD'
-  if (previewMode.value === 'image') return 'IMG'
-  if (previewMode.value === 'text') {
-    const lang = getLanguageFromPath(props.item.path)
-    if (lang && lang !== 'plaintext') return lang.toUpperCase()
-    return 'TXT'
-  }
-  return '?'
-})
 
 const markdownViewer = ref<InstanceType<typeof MarkdownViewerComponent> | null>(null)
 
@@ -55,16 +42,6 @@ defineExpose({ scrollToHeading })
 
 <template>
   <section class="preview-pane" aria-label="文件预览">
-    <div v-if="item" class="preview-header">
-      <div class="preview-title-block">
-        <div class="file-type-badge">{{ badgeLabel }}</div>
-        <div>
-          <h1>{{ item.name }}</h1>
-          <p>{{ item.path }}<span v-if="item.size !== undefined"> · {{ formatBytes(item.size) }}</span></p>
-        </div>
-      </div>
-    </div>
-
     <div class="preview-scroll">
       <div v-if="loading" class="preview-state" role="status">
         <span class="loading-ring" aria-hidden="true"></span>
@@ -96,6 +73,7 @@ defineExpose({ scrollToHeading })
           @headings="emit('headings', $event)"
           @active-heading="emit('activeHeading', $event)"
           @open-path="forwardOpenPath"
+          @saved="emit('retry')"
         />
         <CodeViewer
           v-else-if="previewMode === 'text' && text"

@@ -144,3 +144,8 @@ export async function moveFile(path: string, targetDir: string): Promise<FileMet
     body: JSON.stringify({ path, targetDir }),
   })
 }
+
+export async function saveTextFile(path: string, content: string): Promise<FileMetaResponse> {
+  const buffer = new TextEncoder().encode(content).buffer
+  return uploadFile(path, buffer)
+}

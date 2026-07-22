@@ -283,6 +283,29 @@
   color: #24292e;
 }
 
+:root[data-theme='day'] .token.title,
+:root[data-theme='day'] .token.header {
+  color: #0550ae;
+  font-weight: 700;
+}
+
+:root[data-theme='day'] .token.bold {
+  font-weight: 700;
+}
+
+:root[data-theme='day'] .token.italic {
+  font-style: italic;
+}
+
+:root[data-theme='day'] .token.url,
+:root[data-theme='day'] .token.link {
+  color: #0969da;
+}
+
+:root[data-theme='day'] .token.code {
+  color: #cf222e;
+}
+
 :root[data-theme='night'] .token.comment,
 :root[data-theme='night'] .token.prolog,
 :root[data-theme='night'] .token.doctype,
@@ -320,6 +343,29 @@
 :root[data-theme='night'] .token.operator,
 :root[data-theme='night'] .token.punctuation {
   color: #c9d1d9;
+}
+
+:root[data-theme='night'] .token.title,
+:root[data-theme='night'] .token.header {
+  color: #79c0ff;
+  font-weight: 700;
+}
+
+:root[data-theme='night'] .token.bold {
+  font-weight: 700;
+}
+
+:root[data-theme='night'] .token.italic {
+  font-style: italic;
+}
+
+:root[data-theme='night'] .token.url,
+:root[data-theme='night'] .token.link {
+  color: #58a6ff;
+}
+
+:root[data-theme='night'] .token.code {
+  color: #ff7b72;
 }
 
 .table-scroll {
