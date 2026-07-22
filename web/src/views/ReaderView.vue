@@ -7,6 +7,7 @@ import type { FsItem, TextResponse } from '@/api/types'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
+import SettingsModal from '@/components/SettingsModal.vue'
 import ThemeControl from '@/components/ThemeControl.vue'
 import { useTheme } from '@/composables/useTheme'
 import type { MarkdownHeading } from '@/markdown/render'
@@ -57,6 +58,19 @@ function changeFontSize(delta: number) {
 }
 const signingOut = ref(false)
 const userMenuOpen = ref(false)
+const showSettingsModal = ref(false)
+const fileTreeKey = ref(0)
+
+function openSettings() {
+  userMenuOpen.value = false
+  showSettingsModal.value = true
+}
+
+function handleWorkspaceUpdated() {
+  selectedItem.value = null
+  textContent.value = null
+  fileTreeKey.value++
+}
 
 let previewRun = 0
 let previewController: AbortController | null = null
@@ -401,6 +415,10 @@ onBeforeUnmount(() => {
           <Transition name="dropdown">
             <div v-if="userMenuOpen" class="user-dropdown">
               <div class="user-dropdown-header">{{ props.username }}</div>
+              <button class="user-dropdown-btn" type="button" @click="openSettings">
+                <span v-html="iconSvg('settings', 14)"></span>
+                设置 (Settings)
+              </button>
               <button class="user-dropdown-btn" type="button" :disabled="signingOut" @click="signOut">
                 <span v-html="iconSvg('log-out', 14)"></span>
                 {{ signingOut ? '退出中…' : '退出登录' }}
@@ -424,7 +442,7 @@ onBeforeUnmount(() => {
         :aria-label="mobileViewport ? '工作区文件' : undefined"
         :inert="mobileViewport ? (!mobileLeftOpen || undefined) : (!leftVisible || undefined)"
       >
-        <FileTree :selected-path="selectedItem?.path || ''" @open="handleTreeOpen" @close="closeDrawers()" />
+        <FileTree :key="fileTreeKey" :selected-path="selectedItem?.path || ''" @open="handleTreeOpen" @close="closeDrawers()" />
       </aside>
 
       <div
@@ -489,5 +507,11 @@ onBeforeUnmount(() => {
         @click="closeDrawers()"
       ></button>
     </main>
+
+    <SettingsModal
+      v-if="showSettingsModal"
+      @close="showSettingsModal = false"
+      @updated="handleWorkspaceUpdated"
+    />
   </div>
 </template>

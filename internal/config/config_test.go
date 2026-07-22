@@ -75,15 +75,27 @@ func TestParseRejectsInvalidRequiredValues(t *testing.T) {
 	hash := validHash(t)
 
 	for name, args := range map[string][]string{
-		"missing workspace": {"--password-hash", hash},
-		"invalid hash":      {"--workspace", workspace, "--password-hash", "plaintext"},
-		"invalid ttl":       {"--workspace", workspace, "--password-hash", hash, "--session-ttl", "0s"},
-		"invalid size":      {"--workspace", workspace, "--password-hash", hash, "--max-text-size", "nope"},
+		"invalid hash": {"--workspace", workspace, "--password-hash", "plaintext"},
+		"invalid ttl":  {"--workspace", workspace, "--password-hash", hash, "--session-ttl", "0s"},
+		"invalid size": {"--workspace", workspace, "--password-hash", hash, "--max-text-size", "nope"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := Parse(args); err == nil {
 				t.Fatal("expected configuration error")
 			}
 		})
+	}
+}
+
+func TestParseOptionalWorkspaceDefaults(t *testing.T) {
+	clearConfigEnvironment(t)
+	hash := validHash(t)
+
+	cfg, err := Parse([]string{"--password-hash", hash})
+	if err != nil {
+		t.Fatalf("expected parse success when workspace omitted: %v", err)
+	}
+	if cfg.Workspace == "" {
+		t.Fatal("expected non-empty default workspace")
 	}
 }

@@ -83,6 +83,17 @@ export async function logout(): Promise<void> {
   })
 }
 
+export async function getWorkspace(): Promise<{ workspace: string }> {
+  return request<{ workspace: string }>(apiUrl('/workspace'))
+}
+
+export async function setWorkspace(workspace: string): Promise<{ workspace: string }> {
+  return request<{ workspace: string }>(apiUrl('/workspace'), {
+    method: 'POST',
+    body: JSON.stringify({ workspace }),
+  })
+}
+
 export async function listDirectory(path: string, signal?: AbortSignal): Promise<FileListResponse> {
   return request<FileListResponse>(apiUrl('/fs/list', { path }), { signal })
 }

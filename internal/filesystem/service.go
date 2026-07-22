@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -48,29 +49,79 @@ type TextFile struct {
 }
 
 type Service struct {
+	mu          sync.RWMutex
 	root        string
 	maxTextSize int64
 }
 
 func New(root string, maxTextSize int64) (*Service, error) {
+	svc := &Service{maxTextSize: maxTextSize}
+	if _, err := svc.SetRoot(root); err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+func (s *Service) GetRoot() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.root
+}
+
+func (s *Service) SetRoot(newRoot string) (string, error) {
+	newRoot = strings.TrimSpace(newRoot)
+	if newRoot == "" {
+		return "", errors.New("path cannot be empty")
+	}
+	if newRoot == "~" || strings.HasPrefix(newRoot, "~/") || strings.HasPrefix(newRoot, "~\\") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home directory: %w", err)
+		}
+		if newRoot == "~" {
+			newRoot = home
+		} else {
+			newRoot = filepath.Join(home, newRoot[2:])
+		}
+	}
+	root, err := filepath.Abs(newRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace: %w", err)
+	}
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		if err := os.MkdirAll(root, 0755); err != nil {
+			return "", fmt.Errorf("create workspace directory: %w", err)
+		}
+	}
 	realRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return nil, fmt.Errorf("resolve workspace: %w", err)
+		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
 	}
-	realRoot, err = filepath.Abs(realRoot)
+	info, err := os.Stat(realRoot)
 	if err != nil {
-		return nil, fmt.Errorf("absolute workspace: %w", err)
+		return "", fmt.Errorf("stat workspace: %w", err)
 	}
-	return &Service{root: filepath.Clean(realRoot), maxTextSize: maxTextSize}, nil
+	if !info.IsDir() {
+		return "", errors.New("workspace must be a directory")
+	}
+	clean := filepath.Clean(realRoot)
+	s.mu.Lock()
+	s.root = clean
+	s.mu.Unlock()
+	return clean, nil
 }
 
 func (s *Service) Resolve(relative string) (string, string, error) {
+	s.mu.RLock()
+	root := s.root
+	s.mu.RUnlock()
+
 	if strings.ContainsRune(relative, 0) {
 		return "", "", ErrInvalidPath
 	}
 	normalized := strings.ReplaceAll(relative, "\\", "/")
 	if normalized == "" || normalized == "." {
-		return s.root, "", nil
+		return root, "", nil
 	}
 	if strings.HasPrefix(normalized, "/") || filepath.IsAbs(normalized) || hasWindowsVolume(normalized) {
 		return "", "", ErrInvalidPath
@@ -79,7 +130,7 @@ func (s *Service) Resolve(relative string) (string, string, error) {
 	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
 		return "", "", ErrOutsideRoot
 	}
-	candidate := filepath.Join(s.root, filepath.FromSlash(cleaned))
+	candidate := filepath.Join(root, filepath.FromSlash(cleaned))
 	real, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
 		return "", "", err
@@ -88,7 +139,7 @@ func (s *Service) Resolve(relative string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	relToRoot, err := filepath.Rel(s.root, real)
+	relToRoot, err := filepath.Rel(root, real)
 	if err != nil {
 		return "", "", ErrOutsideRoot
 	}

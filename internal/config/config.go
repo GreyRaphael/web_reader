@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -65,25 +66,121 @@ func Parse(args []string) (Config, error) {
 	}
 
 	if strings.TrimSpace(cfg.Workspace) == "" {
-		return Config{}, errors.New("workspace is required (set WEB_READER_WORKSPACE or --workspace)")
+		if saved := LoadSavedWorkspace(); saved != "" {
+			cfg.Workspace = saved
+		} else {
+			cfg.Workspace = "~/workspace"
+		}
 	}
-	root, err := filepath.Abs(cfg.Workspace)
+	resolvedWS, err := ResolveWorkspaceDir(cfg.Workspace)
 	if err != nil {
 		return Config{}, fmt.Errorf("resolve workspace: %w", err)
 	}
-	root, err = filepath.EvalSymlinks(root)
-	if err != nil {
-		return Config{}, fmt.Errorf("resolve workspace symlinks: %w", err)
+	cfg.Workspace = resolvedWS
+	return cfg, nil
+}
+
+func ExpandTilde(p string) (string, error) {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return "", errors.New("path cannot be empty")
 	}
-	info, err := os.Stat(root)
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~\\") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home directory: %w", err)
+		}
+		if p == "~" {
+			return home, nil
+		}
+		return filepath.Join(home, p[2:]), nil
+	}
+	return p, nil
+}
+
+func ResolveWorkspaceDir(p string) (string, error) {
+	expanded, err := ExpandTilde(p)
 	if err != nil {
-		return Config{}, fmt.Errorf("stat workspace: %w", err)
+		return "", err
+	}
+	root, err := filepath.Abs(expanded)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace: %w", err)
+	}
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		if err := os.MkdirAll(root, 0755); err != nil {
+			return "", fmt.Errorf("create workspace directory: %w", err)
+		}
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
+	}
+	info, err := os.Stat(realRoot)
+	if err != nil {
+		return "", fmt.Errorf("stat workspace: %w", err)
 	}
 	if !info.IsDir() {
-		return Config{}, errors.New("workspace must be a directory")
+		return "", errors.New("workspace must be a directory")
 	}
-	cfg.Workspace = filepath.Clean(root)
-	return cfg, nil
+	return filepath.Clean(realRoot), nil
+}
+
+type SavedSettings struct {
+	Workspace string `json:"workspace"`
+}
+
+func getSettingsFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		home, hErr := os.UserHomeDir()
+		if hErr != nil {
+			return "", err
+		}
+		configDir = filepath.Join(home, ".config")
+	}
+	appDir := filepath.Join(configDir, "web-reader")
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "settings.json"), nil
+}
+
+func SaveWorkspaceSetting(workspace string) error {
+	file, err := getSettingsFilePath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(file)
+	var settings map[string]any
+	if err == nil {
+		_ = json.Unmarshal(data, &settings)
+	}
+	if settings == nil {
+		settings = make(map[string]any)
+	}
+	settings["workspace"] = workspace
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(file, out, 0644)
+}
+
+func LoadSavedWorkspace() string {
+	file, err := getSettingsFilePath()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return ""
+	}
+	var settings SavedSettings
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(settings.Workspace)
 }
 
 func envOr(key, fallback string) string {

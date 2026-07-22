@@ -38,7 +38,8 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("POST /api/auth/login", cfg.Auth.Login)
 	mux.Handle("POST /api/auth/logout", cfg.Sessions.Require(http.HandlerFunc(cfg.Auth.Logout)))
 	mux.HandleFunc("GET /api/auth/session", cfg.Auth.Session)
-
+	mux.Handle("GET /api/workspace", cfg.Sessions.Require(http.HandlerFunc(getWorkspaceHandler(cfg.Files))))
+	mux.Handle("POST /api/workspace", cfg.Sessions.Require(http.HandlerFunc(setWorkspaceHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/list", cfg.Sessions.Require(http.HandlerFunc(listHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/meta", cfg.Sessions.Require(http.HandlerFunc(metaHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/text", cfg.Sessions.Require(http.HandlerFunc(textHandler(cfg.Files))))
@@ -284,6 +285,42 @@ func deleteHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"deleted": path})
+	}
+}
+
+func getWorkspaceHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"workspace": service.GetRoot()})
+	}
+}
+
+type setWorkspaceRequest struct {
+	Workspace string `json:"workspace"`
+	Path      string `json:"path"`
+}
+
+func setWorkspaceHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req setWorkspaceRequest
+		if err := decodeJSONBody(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON payload")
+			return
+		}
+		targetPath := strings.TrimSpace(req.Workspace)
+		if targetPath == "" {
+			targetPath = strings.TrimSpace(req.Path)
+		}
+		if targetPath == "" {
+			writeError(w, http.StatusBadRequest, "invalid_path", "Workspace path is required")
+			return
+		}
+		cleanPath, err := service.SetRoot(targetPath)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_workspace", err.Error())
+			return
+		}
+		_ = config.SaveWorkspaceSetting(cleanPath)
+		writeJSON(w, http.StatusOK, map[string]string{"workspace": cleanPath})
 	}
 }
 

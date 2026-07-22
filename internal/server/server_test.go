@@ -93,6 +93,12 @@ func TestProtectedFilesystemFlow(t *testing.T) {
 	}
 
 	cookie := loginCookie(t, handler)
+	sessionResponse := httptest.NewRecorder()
+	handler.ServeHTTP(sessionResponse, authenticatedRequest(http.MethodGet, "/api/auth/session", cookie))
+	if sessionResponse.Code != http.StatusOK || !strings.Contains(sessionResponse.Body.String(), `"authenticated":true`) {
+		t.Fatalf("session status = %d, body = %s", sessionResponse.Code, sessionResponse.Body.String())
+	}
+
 	listResponse := httptest.NewRecorder()
 	handler.ServeHTTP(listResponse, authenticatedRequest(http.MethodGet, "/api/fs/list?path=", cookie))
 	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), "readme.md") {
@@ -182,5 +188,29 @@ func TestSecurityHeadersAndSPAFallback(t *testing.T) {
 	handler.ServeHTTP(apiMissing, httptest.NewRequest(http.MethodGet, "/api/missing", nil))
 	if apiMissing.Code != http.StatusNotFound || !strings.Contains(apiMissing.Body.String(), `"code":"not_found"`) {
 		t.Fatalf("API fallback status = %d, body = %s", apiMissing.Code, apiMissing.Body.String())
+	}
+}
+
+func TestWorkspaceAPI(t *testing.T) {
+	srv := newTestServer(t)
+	handler := srv.Handler()
+	cookie := loginCookie(t, handler)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/workspace", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"workspace":`) {
+		t.Fatalf("GET /api/workspace status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	newDir := t.TempDir()
+	postReq := httptest.NewRequest(http.MethodPost, "/api/workspace", strings.NewReader(`{"workspace":"`+newDir+`"}`))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.AddCookie(cookie)
+	postRec := httptest.NewRecorder()
+	handler.ServeHTTP(postRec, postReq)
+	if postRec.Code != http.StatusOK || !strings.Contains(postRec.Body.String(), newDir) {
+		t.Fatalf("POST /api/workspace status = %d, body = %s", postRec.Code, postRec.Body.String())
 	}
 }
