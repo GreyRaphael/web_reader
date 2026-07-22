@@ -293,15 +293,6 @@
   box-shadow: var(--shadow);
 }
 
-.user-dropdown-header {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .user-dropdown-btn {
   display: flex;
   width: 100%;
