@@ -23,6 +23,7 @@ const emit = defineEmits<{
   activeHeading: [id: string]
   openPath: [path: string, hash: string]
   retry: []
+  toggleOutline: []
 }>()
 
 const previewMode = computed(() => getPreviewMode(props.item))
@@ -74,6 +75,7 @@ defineExpose({ scrollToHeading })
           @active-heading="emit('activeHeading', $event)"
           @open-path="forwardOpenPath"
           @saved="emit('retry')"
+          @toggle-outline="emit('toggleOutline')"
         />
         <CodeViewer
           v-else-if="previewMode === 'text' && text"

@@ -391,18 +391,6 @@ onBeforeUnmount(() => {
 
       <div class="toolbar-section toolbar-end">
         <ThemeControl />
-        <button
-          id="right-panel-toggle"
-          ref="rightToggle"
-          class="icon-button"
-          type="button"
-          :aria-expanded="mobileViewport ? mobileRightOpen : rightVisible"
-          aria-controls="right-panel"
-          aria-label="切换大纲栏"
-          title="切换大纲栏"
-          @click="toggleRight"
-          v-html="iconSvg('outline', 18)"
-        ></button>
         <div class="font-controls">
           <button class="font-btn" type="button" @click="changeFontSize(-1)" title="缩小字体" aria-label="缩小字体">A-</button>
           <button class="font-btn" type="button" @click="changeFontSize(0)" title="重置字体大小" aria-label="重置字体大小">Aa</button>
@@ -434,16 +422,9 @@ onBeforeUnmount(() => {
         :role="mobileViewport ? 'dialog' : 'complementary'"
         :aria-modal="mobileViewport ? 'true' : undefined"
         :aria-label="mobileViewport ? '工作区文件' : undefined"
-        :aria-hidden="mobileViewport ? !mobileLeftOpen : !leftVisible"
-        :inert="mobileViewport ? !mobileLeftOpen : !leftVisible"
+        :inert="mobileViewport ? (!mobileLeftOpen || undefined) : (!leftVisible || undefined)"
       >
-        <div class="mobile-drawer-title">
-          <strong>工作区</strong>
-          <button class="icon-button" type="button" aria-label="关闭文件栏" @click="closeDrawers()">
-            ×
-          </button>
-        </div>
-        <FileTree :selected-path="selectedItem?.path || ''" @open="handleTreeOpen" />
+        <FileTree :selected-path="selectedItem?.path || ''" @open="handleTreeOpen" @close="closeDrawers()" />
       </aside>
 
       <div
@@ -466,12 +447,12 @@ onBeforeUnmount(() => {
         :loading="loadingPreview"
         :error="previewError"
         :theme="resolved"
-        :aria-hidden="mobileLeftOpen || mobileRightOpen ? 'true' : undefined"
-        :inert="mobileLeftOpen || mobileRightOpen"
+        :inert="(mobileLeftOpen || mobileRightOpen) || undefined"
         @headings="headings = $event"
         @active-heading="activeHeading = $event"
         @open-path="handleInternalOpen"
         @retry="retryPreview"
+        @toggle-outline="toggleRight()"
       />
 
       <div
@@ -495,16 +476,9 @@ onBeforeUnmount(() => {
         :role="mobileViewport ? 'dialog' : 'complementary'"
         :aria-modal="mobileViewport ? 'true' : undefined"
         :aria-label="mobileViewport ? '文章大纲' : undefined"
-        :aria-hidden="mobileViewport ? !mobileRightOpen : !rightVisible"
-        :inert="mobileViewport ? !mobileRightOpen : !rightVisible"
+        :inert="mobileViewport ? (!mobileRightOpen || undefined) : (!rightVisible || undefined)"
       >
-        <div class="mobile-drawer-title">
-          <strong>文章大纲</strong>
-          <button class="icon-button" type="button" aria-label="关闭大纲栏" @click="closeDrawers()">
-            ×
-          </button>
-        </div>
-        <OutlinePanel :headings="headings" :active-id="activeHeading" @select="selectHeading" />
+        <OutlinePanel :headings="headings" :active-id="activeHeading" @select="selectHeading" @close="closeDrawers()" />
       </aside>
 
       <button

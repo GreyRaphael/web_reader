@@ -4,7 +4,7 @@ import type { MarkdownHeading } from '@/markdown/render'
 import { iconSvg } from '@/utils/icons'
 
 const props = defineProps<{ headings: MarkdownHeading[]; activeId: string }>()
-const emit = defineEmits<{ select: [id: string] }>()
+const emit = defineEmits<{ select: [id: string]; close: [] }>()
 
 const minimumLevel = computed(() =>
   props.headings.length > 0 ? Math.min(...props.headings.map((heading) => heading.level)) : 1,
@@ -94,6 +94,15 @@ watch(
           v-html="iconSvg('chevrons-down', 16)"
           @click="expandAll"
         ></button>
+        <button
+          class="icon-button compact drawer-close-btn"
+          type="button"
+          title="关闭大纲栏"
+          aria-label="关闭大纲栏"
+          @click="emit('close')"
+        >
+          ×
+        </button>
       </div>
     </div>
     <nav v-if="headings.length" class="outline-nav" aria-label="文章大纲">

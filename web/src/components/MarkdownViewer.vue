@@ -4,7 +4,7 @@ import 'katex/dist/katex.min.css'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import panzoom, { type PanZoom } from 'panzoom'
 import { saveTextFile } from '@/api/client'
-import { ICON_PATHS } from '@/utils/icons'
+import { ICON_PATHS, iconSvg } from '@/utils/icons'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import { renderMarkdown, type MarkdownHeading, type RenderedMarkdown } from '@/markdown/render'
 import { decodeFragment } from '@/utils/path'
@@ -22,6 +22,7 @@ const emit = defineEmits<{
   activeHeading: [id: string]
   openPath: [path: string, hash: string]
   saved: [path: string]
+  toggleOutline: []
 }>()
 
 const viewMode = ref<ViewMode>('preview')
@@ -746,6 +747,14 @@ onBeforeUnmount(() => {
         >
           {{ isSaving ? '保存中…' : '保存' }}
         </button>
+        <button
+          type="button"
+          class="outline-toggle-btn icon-button compact"
+          title="切换文章大纲"
+          aria-label="切换文章大纲"
+          v-html="iconSvg('outline', 16)"
+          @click="emit('toggleOutline')"
+        ></button>
       </div>
     </div>
 

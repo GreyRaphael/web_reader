@@ -429,8 +429,36 @@
   opacity: 1;
 }
 
-.mobile-drawer-title {
-  display: none;
+.drawer-close-btn {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+@media (min-width: 841px) {
+  .drawer-close-btn {
+    display: none !important;
+  }
+}
+
+.outline-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.outline-toggle-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .file-tree-panel,
@@ -1326,45 +1354,38 @@
     z-index: 30;
     top: 0;
     bottom: 0;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     width: min(88vw, 370px);
-    grid-template-rows: auto minmax(0, 1fr);
     visibility: hidden;
     box-shadow: var(--shadow);
+    will-change: transform;
     transition:
-      transform 180ms ease,
-      visibility 180ms ease;
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .left-panel {
     left: 0;
     border-right: 1px solid var(--border);
-    transform: translateX(-105%);
+    transform: translate3d(-105%, 0, 0);
   }
 
   .right-panel {
     right: 0;
     border-left: 1px solid var(--border);
-    transform: translateX(105%);
+    transform: translate3d(105%, 0, 0);
   }
 
   .side-panel.mobile-open {
     visibility: visible;
-    transform: translateX(0);
-  }
-
-  .mobile-drawer-title {
-    display: flex;
-    min-height: 54px;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px 4px 16px;
-    border-bottom: 1px solid var(--border);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
 
   .file-tree-panel,
   .outline-panel {
-    height: auto;
+    height: 100%;
   }
 
   .file-tree-panel .panel-heading,
@@ -1385,9 +1406,10 @@
     display: block;
     width: 100%;
     border: 0;
-    background: rgb(4 9 6 / 45%);
+    background: rgba(0, 0, 0, 0.4);
     cursor: pointer;
-    backdrop-filter: blur(2px);
+    will-change: opacity;
+    transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .preview-header {

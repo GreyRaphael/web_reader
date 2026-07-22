@@ -18,7 +18,7 @@ import ContextMenu from './ContextMenu.vue'
 import TreeChildren from './TreeChildren.vue'
 
 const props = defineProps<{ selectedPath: string }>()
-const emit = defineEmits<{ open: [item: FsItem] }>()
+const emit = defineEmits<{ open: [item: FsItem]; close: [] }>()
 
 const items = ref<FsItem[]>([])
 const loading = ref(true)

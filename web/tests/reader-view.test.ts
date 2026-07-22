@@ -16,8 +16,8 @@ function installMatchMedia(mobile: boolean): void {
 }
 
 const stubs = {
-  FileTree: true,
-  OutlinePanel: true,
+  FileTree: { template: '<div><button aria-label="关闭文件栏">×</button></div>' },
+  OutlinePanel: { template: '<div><button aria-label="关闭大纲栏">×</button></div>' },
   PreviewPane: true,
   ThemeControl: true,
 }
@@ -43,7 +43,7 @@ describe('ReaderView layout', () => {
     expect(toggle.attributes('aria-expanded')).toBe('true')
     expect(drawer.attributes('role')).toBe('dialog')
     expect(drawer.attributes('aria-modal')).toBe('true')
-    expect(drawer.attributes('aria-hidden')).toBe('false')
+    expect(drawer.attributes()).not.toHaveProperty('inert')
     expect(wrapper.get('preview-pane-stub').attributes()).toHaveProperty('inert')
     expect(document.activeElement?.getAttribute('aria-label')).toBe('关闭文件栏')
 
@@ -66,6 +66,6 @@ describe('ReaderView layout', () => {
     await wrapper.vm.$nextTick()
 
     expect(window.localStorage.getItem('web-reader-left-visible')).toBe('false')
-    expect(wrapper.get('#left-panel').attributes('aria-hidden')).toBe('true')
+    expect(wrapper.get('#left-panel').attributes()).toHaveProperty('inert')
   })
 })
