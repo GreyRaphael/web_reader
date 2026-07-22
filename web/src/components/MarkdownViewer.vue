@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import DOMPurify from 'dompurify'
-import 'highlight.js/styles/github.css'
 import 'katex/dist/katex.min.css'
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import panzoom, { type PanZoom } from 'panzoom'
