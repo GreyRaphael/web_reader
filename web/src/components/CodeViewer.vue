@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ICON_PATHS } from '@/utils/icons'
-import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
+import { getLanguageFromPath, highlightCode } from '@/utils/prism'
 
 const props = defineProps<{
   content: string
   path: string
 }>()
 
-const LARGE_FILE_BYTES = 100 * 1024 // 100 KB
-const LARGE_FILE_LINES = 3000
-
 const copied = ref(false)
-const forceHighlight = ref(false)
 const isHighlighting = ref(false)
 const highlightedHtml = ref('')
 
@@ -37,21 +33,7 @@ const lineNumbersText = computed(() => {
   return result
 })
 
-const isLargeFile = computed(() => {
-  return (props.content ? props.content.length : 0) > LARGE_FILE_BYTES || lineCount.value > LARGE_FILE_LINES
-})
-
-const isHighPerformanceMode = computed(() => {
-  return isLargeFile.value && !forceHighlight.value
-})
-
 function updateHighlighting() {
-  if (isHighPerformanceMode.value) {
-    highlightedHtml.value = escapeHtml(props.content || '')
-    isHighlighting.value = false
-    return
-  }
-
   isHighlighting.value = true
   setTimeout(() => {
     highlightedHtml.value = highlightCode(props.content || '', language.value)
@@ -59,7 +41,7 @@ function updateHighlighting() {
   }, 0)
 }
 
-watch([() => props.content, () => props.path, forceHighlight], updateHighlighting, { immediate: true })
+watch([() => props.content, () => props.path], updateHighlighting, { immediate: true })
 
 async function copyCode(): Promise<void> {
   try {
@@ -80,20 +62,9 @@ async function copyCode(): Promise<void> {
       <div class="code-viewer-meta">
         <span class="code-badge">{{ languageBadge }}</span>
         <span class="code-lines">{{ lineCount }} 行</span>
-        <span v-if="isHighPerformanceMode" class="perf-badge" title="超大文件已开启高性能纯文本渲染">
-          ⚡ 纯文本高性能模式
-        </span>
       </div>
       <div class="code-viewer-actions">
-        <button
-          v-if="isHighPerformanceMode"
-          type="button"
-          class="secondary-button enable-highlight-btn"
-          @click="forceHighlight = true"
-        >
-          开启语法高亮
-        </button>
-        <span v-else-if="isHighlighting" class="highlighting-spinner">高亮处理中…</span>
+        <span v-if="isHighlighting" class="highlighting-spinner">高亮处理中…</span>
         <button
           type="button"
           class="code-copy-btn"
@@ -166,22 +137,6 @@ async function copyCode(): Promise<void> {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
-}
-
-.perf-badge {
-  padding: 2px 7px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
-  color: var(--accent-strong);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.enable-highlight-btn {
-  padding: 2px 8px;
-  font-size: 11px;
 }
 
 .highlighting-spinner {
