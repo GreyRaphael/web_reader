@@ -25,7 +25,27 @@ const emit = defineEmits<{
   toggleOutline: []
 }>()
 
-const viewMode = ref<ViewMode>('preview')
+const VIEW_MODE_KEY = 'web-reader-markdown-view-mode'
+function getInitialViewMode(): ViewMode {
+  try {
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY) as ViewMode
+    if (saved && ['preview', 'edit', 'split'].includes(saved)) {
+      return saved
+    }
+  } catch {
+    // Fallback to preview when localStorage is unavailable
+  }
+  return 'preview'
+}
+
+const viewMode = ref<ViewMode>(getInitialViewMode())
+watch(viewMode, (newMode) => {
+  try {
+    window.localStorage.setItem(VIEW_MODE_KEY, newMode)
+  } catch {
+    // Ignore storage errors
+  }
+})
 const editableContent = ref(props.content)
 const isSaving = ref(false)
 const saveError = ref('')

@@ -23,6 +23,7 @@ const emit = defineEmits<{
   activeHeading: [id: string]
   openPath: [path: string, hash: string]
   retry: []
+  saved: [path: string]
   toggleOutline: []
 }>()
 
@@ -74,7 +75,7 @@ defineExpose({ scrollToHeading })
           @headings="emit('headings', $event)"
           @active-heading="emit('activeHeading', $event)"
           @open-path="forwardOpenPath"
-          @saved="emit('retry')"
+          @saved="emit('saved', $event)"
           @toggle-outline="emit('toggleOutline')"
         />
         <CodeViewer

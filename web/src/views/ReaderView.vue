@@ -191,6 +191,17 @@ function retryPreview(): void {
   if (lastPreview) void openItem(lastPreview.target, lastPreview.hash, 'none')
 }
 
+async function handleFileSaved(path: string): Promise<void> {
+  try {
+    const res = await getTextFile(path)
+    if (selectedItem.value && selectedItem.value.path === path) {
+      textContent.value = res
+    }
+  } catch {
+    retryPreview()
+  }
+}
+
 function handleTreeOpen(item: FsItem): void {
   void openItem(item)
 }
@@ -469,6 +480,7 @@ onBeforeUnmount(() => {
         @active-heading="activeHeading = $event"
         @open-path="handleInternalOpen"
         @retry="retryPreview"
+        @saved="handleFileSaved"
         @toggle-outline="toggleRight()"
       />
 
