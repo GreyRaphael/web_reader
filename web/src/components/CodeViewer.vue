@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ICON_PATHS } from '@/utils/icons'
-import { getLanguageFromPath, highlightCode } from '@/utils/prism'
+import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
 
 const props = defineProps<{
   content: string
   path: string
 }>()
+
+const LARGE_FILE_BYTES = 100 * 1024 // 100 KB
+const LARGE_FILE_LINES = 3000
 
 const copied = ref(false)
 const isHighlighting = ref(false)
@@ -33,7 +36,17 @@ const lineNumbersText = computed(() => {
   return result
 })
 
+const isLargeFile = computed(() => {
+  return (props.content ? props.content.length : 0) > LARGE_FILE_BYTES || lineCount.value > LARGE_FILE_LINES
+})
+
 function updateHighlighting() {
+  if (isLargeFile.value) {
+    highlightedHtml.value = escapeHtml(props.content || '')
+    isHighlighting.value = false
+    return
+  }
+
   isHighlighting.value = true
   setTimeout(() => {
     highlightedHtml.value = highlightCode(props.content || '', language.value)
@@ -62,6 +75,9 @@ async function copyCode(): Promise<void> {
       <div class="code-viewer-meta">
         <span class="code-badge">{{ languageBadge }}</span>
         <span class="code-lines">{{ lineCount }} 行</span>
+        <span v-if="isLargeFile" class="perf-badge" title="超出 100KB / 3,000行 限制，仅渲染纯文本">
+          ⚡ 超出 100KB / 3,000行 限制，仅渲染纯文本
+        </span>
       </div>
       <div class="code-viewer-actions">
         <span v-if="isHighlighting" class="highlighting-spinner">高亮处理中…</span>
@@ -137,6 +153,17 @@ async function copyCode(): Promise<void> {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
+}
+
+.perf-badge {
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  color: var(--accent-strong);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .highlighting-spinner {

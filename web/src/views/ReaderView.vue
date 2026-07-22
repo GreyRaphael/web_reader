@@ -71,7 +71,7 @@ const workspaceStyle = computed(() => ({
   '--left-grip': leftVisible.value ? '5px' : '0px',
   '--right-column': rightVisible.value ? `${rightWidth.value}px` : '0px',
   '--right-grip': rightVisible.value ? '5px' : '0px',
-  '--markdown-font-size': `calc(clamp(15px, 1.35vw, 17px) + ${fontSizeOffset.value}px)`
+  '--markdown-font-size': `calc(clamp(14px, 1.25vw, 16px) + ${fontSizeOffset.value}px)`
 }))
 
 function isMobile(): boolean {
