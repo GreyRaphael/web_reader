@@ -213,13 +213,13 @@ async function copyCode(): Promise<void> {
 .code-gutter {
   display: block;
   margin: 0;
-  padding: 1.15em 0.8em;
+  padding: 0.9em 0.7em;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-raised) 60%, transparent);
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.45;
   text-align: right;
   user-select: none;
   white-space: pre;
@@ -230,7 +230,7 @@ async function copyCode(): Promise<void> {
   width: max-content;
   min-width: 0;
   margin: 0;
-  padding: 1.15em 1.25em;
+  padding: 0.9em 1.15em;
   background: transparent;
   overflow-x: auto;
 }
@@ -241,7 +241,7 @@ async function copyCode(): Promise<void> {
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.45;
   tab-size: 4;
   white-space: pre;
 }
