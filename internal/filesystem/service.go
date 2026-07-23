@@ -575,62 +575,75 @@ func naturalLess(a, b string) bool {
 	return len(ar) < len(br)
 }
 
-func (s *Service) CreateZip(relative string) ([]byte, string, error) {
+func (s *Service) StreamZip(relative string, w io.Writer, setDisposition func(filename string)) (string, error) {
 	full, _, err := s.Resolve(relative)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
-	info, err := os.Stat(full)
+	info, err := os.Lstat(full)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 	if !info.IsDir() {
-		return nil, "", ErrNotDirectory
+		return "", ErrNotDirectory
 	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
 	baseDir := filepath.Base(full)
-	err = filepath.Walk(full, func(filePath string, fileInfo os.FileInfo, err error) error {
+	filename := baseDir + ".zip"
+	if setDisposition != nil {
+		setDisposition(filename)
+	}
+	zw := zip.NewWriter(w)
+	err = filepath.WalkDir(full, func(filePath string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if filePath == full {
 			return nil
 		}
-		relPath, err := filepath.Rel(full, filePath)
-		if err != nil {
-			return err
+		if d.IsDir() {
+			relPath, rerr := filepath.Rel(full, filePath)
+			if rerr != nil {
+				return rerr
+			}
+			zipPath := filepath.ToSlash(filepath.Join(baseDir, relPath)) + "/"
+			_, cerr := zw.CreateHeader(&zip.FileHeader{Name: zipPath, Method: zip.Deflate})
+			return cerr
+		}
+		fileInfo, ferr := d.Info()
+		if ferr != nil {
+			return ferr
+		}
+		if isSymlinkMode(fileInfo.Mode()) {
+			return nil
+		}
+		relPath, rerr := filepath.Rel(full, filePath)
+		if rerr != nil {
+			return rerr
 		}
 		zipPath := filepath.ToSlash(filepath.Join(baseDir, relPath))
-		header, err := zip.FileInfoHeader(fileInfo)
-		if err != nil {
-			return err
+		header, herr := zip.FileInfoHeader(fileInfo)
+		if herr != nil {
+			return herr
 		}
 		header.Name = zipPath
 		header.Method = zip.Deflate
-		if fileInfo.IsDir() {
-			header.Name += "/"
-			_, err = zw.CreateHeader(header)
-			return err
+		writer, cerr := zw.CreateHeader(header)
+		if cerr != nil {
+			return cerr
 		}
-		writer, err := zw.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-		f, err := os.Open(filePath)
-		if err != nil {
-			return err
+		f, oerr := openFileNoFollow(filePath, os.O_RDONLY, 0)
+		if oerr != nil {
+			return oerr
 		}
 		defer f.Close()
-		_, err = io.Copy(writer, f)
-		return err
+		_, copyErr := io.Copy(writer, f)
+		return copyErr
 	})
+	if cerr := zw.Close(); err == nil {
+		err = cerr
+	}
 	if err != nil {
-		zw.Close()
-		return nil, "", err
+		return "", err
 	}
-	if err := zw.Close(); err != nil {
-		return nil, "", err
-	}
-	return buf.Bytes(), baseDir + ".zip", nil
+	return baseDir + ".zip", nil
 }

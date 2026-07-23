@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -266,16 +265,19 @@ func zipHandler(service *workspacefs.Service) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid_path", "path query parameter is required")
 			return
 		}
-		data, filename, err := service.CreateZip(dirPath)
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
+		w.Header().Set("Cache-Control", "private, max-age=60")
+		filename, err := service.StreamZip(dirPath, w, func(name string) {
+			if formatted := mime.FormatMediaType("attachment", map[string]string{"filename": name}); formatted != "" {
+				w.Header().Set("Content-Disposition", formatted)
+			}
+		})
 		if err != nil {
 			writeFileError(w, err)
 			return
 		}
-		w.Header().Set("Content-Type", "application/zip")
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
-		w.Header().Set("Cache-Control", "private, max-age=60")
-		http.ServeContent(w, r, filename, time.Now(), bytes.NewReader(data))
+		_ = filename
 	}
 }
 
