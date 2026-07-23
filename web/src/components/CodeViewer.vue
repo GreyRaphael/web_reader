@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ICON_PATHS } from '@/utils/icons'
 import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
 
@@ -14,6 +14,16 @@ const LARGE_FILE_LINES = 3000
 const copied = ref(false)
 const isHighlighting = ref(false)
 const highlightedHtml = ref('')
+const pendingTimers = new Set<number>()
+
+function scheduleTimeout(fn: () => void, delay: number): number {
+  const id = window.setTimeout(() => {
+    pendingTimers.delete(id)
+    fn()
+  }, delay)
+  pendingTimers.add(id)
+  return id
+}
 
 const language = computed(() => getLanguageFromPath(props.path))
 const languageBadge = computed(() => {
@@ -48,7 +58,7 @@ function updateHighlighting() {
   }
 
   isHighlighting.value = true
-  setTimeout(() => {
+  scheduleTimeout(() => {
     highlightedHtml.value = highlightCode(props.content || '', language.value)
     isHighlighting.value = false
   }, 0)
@@ -60,13 +70,18 @@ async function copyCode(): Promise<void> {
   try {
     await navigator.clipboard.writeText(props.content)
     copied.value = true
-    setTimeout(() => {
+    scheduleTimeout(() => {
       copied.value = false
     }, 2000)
   } catch {
     // Clipboard failed
   }
 }
+
+onBeforeUnmount(() => {
+  for (const id of pendingTimers) clearTimeout(id)
+  pendingTimers.clear()
+})
 </script>
 
 <template>

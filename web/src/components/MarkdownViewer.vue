@@ -55,6 +55,16 @@ const popoverText = ref('')
 const popoverIsError = ref(false)
 const popoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 let popoverTimer: number | null = null
+const pendingTimers = new Set<number>()
+
+function scheduleTimeout(fn: () => void, delay: number): number {
+  const id = window.setTimeout(() => {
+    pendingTimers.delete(id)
+    fn()
+  }, delay)
+  pendingTimers.add(id)
+  return id
+}
 
 function showContextualToast(btn: HTMLButtonElement, message: string, isError = false) {
   const rect = btn.getBoundingClientRect()
@@ -66,11 +76,14 @@ function showContextualToast(btn: HTMLButtonElement, message: string, isError = 
     left: `${left}px`,
   }
 
-  if (popoverTimer) clearTimeout(popoverTimer)
+  if (popoverTimer) {
+    clearTimeout(popoverTimer)
+    pendingTimers.delete(popoverTimer)
+  }
   popoverText.value = message
   popoverIsError.value = isError
 
-  popoverTimer = window.setTimeout(() => {
+  popoverTimer = scheduleTimeout(() => {
     popoverText.value = ''
     popoverTimer = null
   }, 2000)
@@ -315,7 +328,7 @@ function injectCodeCopyButtons(): void {
         btn.classList.add('copied')
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['check']}</svg> 已复制`
         showContextualToast(btn, '已复制代码块内容')
-        setTimeout(() => {
+        scheduleTimeout(() => {
           btn.classList.remove('copied')
           btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0">${ICON_PATHS['clipboard']}</svg> 复制`
         }, 2000)
@@ -476,7 +489,7 @@ function showButtonFeedback(btn: HTMLButtonElement, successMessage: string, isEr
   btn.setAttribute('title', successMessage)
   btn.style.color = isError ? 'var(--danger)' : 'var(--accent-strong)'
   showContextualToast(btn, successMessage, isError)
-  setTimeout(() => {
+  scheduleTimeout(() => {
     btn.setAttribute('title', originalTitle)
     btn.style.color = ''
   }, 2000)
@@ -602,7 +615,7 @@ async function handleSave(): Promise<void> {
     await saveTextFile(props.currentPath, editableContent.value)
     saveSuccess.value = true
     emit('saved', props.currentPath)
-    setTimeout(() => {
+    scheduleTimeout(() => {
       saveSuccess.value = false
     }, 2000)
   } catch (err) {
@@ -735,6 +748,12 @@ onBeforeUnmount(() => {
   removeScrollSpy()
   cleanupPanzoom()
   closeFullscreen()
+  if (popoverTimer) {
+    clearTimeout(popoverTimer)
+    popoverTimer = null
+  }
+  for (const id of pendingTimers) clearTimeout(id)
+  pendingTimers.clear()
 })
 </script>
 
