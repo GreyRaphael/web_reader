@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getWorkspace, setWorkspace } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
 
@@ -15,6 +15,8 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
 const successMsg = ref('')
+const dialogEl = ref<HTMLDialogElement | null>(null)
+let previouslyFocused: HTMLElement | null = null
 
 async function fetchCurrentWorkspace() {
   loading.value = true
@@ -56,14 +58,30 @@ async function handleSave() {
   }
 }
 
-onMounted(() => {
-  fetchCurrentWorkspace()
+function closeDialog(): void {
+  emit('close')
+}
+
+onMounted(async () => {
+  previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  await fetchCurrentWorkspace()
+  await nextTick()
+  const dialog = dialogEl.value
+  if (dialog && !dialog.open) {
+    dialog.showModal()
+  }
+  const focusable = dialog?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])')
+  focusable?.focus()
+})
+
+onBeforeUnmount(() => {
+  previouslyFocused?.focus()
 })
 </script>
 
 <template>
-  <div class="modal-backdrop" @click.self="emit('close')">
-    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title">
+  <dialog ref="dialogEl" class="modal-dialog" aria-labelledby="settings-dialog-title" @click.self="closeDialog" @cancel.prevent="closeDialog">
+    <div class="modal-inner">
       <div class="modal-header">
         <h3 id="settings-dialog-title" class="modal-title">
           <span class="emoji-icon">⚙️</span>
@@ -73,7 +91,7 @@ onMounted(() => {
           class="icon-button compact close-btn"
           type="button"
           aria-label="关闭设置"
-          @click="emit('close')"
+          @click="closeDialog"
         >
           ×
         </button>
@@ -129,7 +147,7 @@ onMounted(() => {
           class="button secondary-button"
           type="button"
           :disabled="saving"
-          @click="emit('close')"
+          @click="closeDialog"
         >
           取消
         </button>
@@ -143,33 +161,32 @@ onMounted(() => {
         </button>
       </div>
     </div>
-  </div>
+  </dialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(2px);
-  padding: 16px;
-}
-
 .modal-dialog {
   width: 100%;
   max-width: 520px;
-  background: var(--surface);
+  max-height: calc(100vh - 32px);
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
+  background: var(--surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modal-fade-in 180ms ease-out;
+}
+
+.modal-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.modal-inner {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modal-fade-in 180ms ease-out;
 }
 
 @keyframes modal-fade-in {
