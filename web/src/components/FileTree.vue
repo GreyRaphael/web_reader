@@ -533,7 +533,6 @@ onBeforeUnmount(() => controller?.abort())
                   @context-menu="buildContextMenu"
                   @click="handleChildClick"
                   @expand="toggleExpand"
-                  @refresh="refreshDir"
                 />
                 <li v-if="getChildren(item.path).length === 0" class="tree-child-empty">空目录</li>
               </ul>
