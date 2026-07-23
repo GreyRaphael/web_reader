@@ -234,8 +234,12 @@ async function handleModalAction(action: string, btnEvent?: MouseEvent) {
   } else if (action === 'copy-mermaid') {
     if (fullscreenMermaidSource.value) {
       navigator.clipboard.writeText(fullscreenMermaidSource.value).then(
-        () => btn && showButtonFeedback(btn, '已复制 Mermaid 源码'),
-        () => btn && showButtonFeedback(btn, '复制源码失败', true),
+        () => {
+          if (btn) showButtonFeedback(btn, '已复制 Mermaid 源码')
+        },
+        () => {
+          if (btn) showButtonFeedback(btn, '复制源码失败', true)
+        },
       )
     }
   } else if (action === 'copy-image') {
@@ -245,20 +249,26 @@ async function handleModalAction(action: string, btnEvent?: MouseEvent) {
         async (blob) => {
           try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-            btn && showButtonFeedback(btn, '已复制 PNG 图片 (白底)')
+            if (btn) showButtonFeedback(btn, '已复制 PNG 图片 (白底)')
           } catch {
-            btn && showButtonFeedback(btn, '剪切板写入受限', true)
+            if (btn) showButtonFeedback(btn, '剪切板写入受限', true)
           }
         },
-        () => btn && showButtonFeedback(btn, '图片转换失败', true),
+        () => {
+          if (btn) showButtonFeedback(btn, '图片转换失败', true)
+        },
       )
     }
   } else if (action === 'export-image') {
     const svg = fullscreenOutputRef.value?.querySelector('svg')
     if (svg) {
       exportPngImage(svg, 'mermaid-diagram.png', { transparent: true }).then(
-        () => btn && showButtonFeedback(btn, '已下载透明 PNG 图片'),
-        () => btn && showButtonFeedback(btn, '导出 PNG 失败', true),
+        () => {
+          if (btn) showButtonFeedback(btn, '已下载透明 PNG 图片')
+        },
+        () => {
+          if (btn) showButtonFeedback(btn, '导出 PNG 失败', true)
+        },
       )
     }
   } else if (modalPanzoom && fullscreenOutputRef.value) {
