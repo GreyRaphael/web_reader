@@ -153,6 +153,7 @@ const fullscreenMermaidHTML = ref<string>('')
 const fullscreenMermaidSource = ref<string>('')
 const modalRotation = ref<number>(0)
 const fullscreenOutputRef = ref<HTMLElement | null>(null)
+const modalDialogRef = ref<HTMLDialogElement | null>(null)
 let modalPanzoom: PanZoom | null = null
 
 function cleanupPanzoom() {
@@ -717,6 +718,18 @@ watch(
   },
 )
 
+watch(fullscreenMermaidHTML, async (html) => {
+  await nextTick()
+  const dialog = modalDialogRef.value
+  if (!dialog) return
+  if (html) {
+    if (!dialog.open) dialog.showModal()
+    dialog.querySelector<HTMLButtonElement>('.mermaid-btn[data-action="minimize"]')?.focus()
+  } else if (dialog.open) {
+    dialog.close()
+  }
+})
+
 onBeforeUnmount(() => {
   mermaidRun += 1
   removeScrollSpy()
@@ -825,7 +838,7 @@ onBeforeUnmount(() => {
         </div>
       </Transition>
 
-      <dialog v-if="fullscreenMermaidHTML" class="mermaid-modal" open @close="closeFullscreen">
+      <dialog v-if="fullscreenMermaidHTML" ref="modalDialogRef" class="mermaid-modal" @close="closeFullscreen" @cancel.prevent="closeFullscreen">
         <div class="mermaid-modal-backdrop" @click="closeFullscreen"></div>
         <div class="mermaid-modal-content">
           <div class="mermaid-toolbar modal-toolbar">
