@@ -97,6 +97,9 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
 	}
+	if isSensitiveSystemPath(realRoot) {
+		return "", fmt.Errorf("workspace %q is a sensitive system directory", realRoot)
+	}
 	info, err := os.Stat(realRoot)
 	if err != nil {
 		return "", fmt.Errorf("stat workspace: %w", err)
@@ -109,6 +112,22 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	s.root = clean
 	s.mu.Unlock()
 	return clean, nil
+}
+
+func isSensitiveSystemPath(p string) bool {
+	clean := filepath.Clean(p)
+	sensitive := []string{
+		"/etc", "/root", "/proc", "/sys", "/dev",
+		"/usr", "/bin", "/sbin", "/lib", "/lib64",
+		"/boot", "/var/lib", "/var/log", "/run",
+		"/Windows", `C:\Windows`,
+	}
+	for _, s := range sensitive {
+		if clean == s || strings.HasPrefix(clean, s+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) Resolve(relative string) (string, string, error) {

@@ -123,6 +123,9 @@ func ResolveWorkspaceDir(p string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
 	}
+	if isSensitiveSystemPath(realRoot) {
+		return "", fmt.Errorf("workspace %q is a sensitive system directory", realRoot)
+	}
 	info, err := os.Stat(realRoot)
 	if err != nil {
 		return "", fmt.Errorf("stat workspace: %w", err)
@@ -131,6 +134,22 @@ func ResolveWorkspaceDir(p string) (string, error) {
 		return "", errors.New("workspace must be a directory")
 	}
 	return filepath.Clean(realRoot), nil
+}
+
+func isSensitiveSystemPath(p string) bool {
+	clean := filepath.Clean(p)
+	sensitive := []string{
+		"/etc", "/root", "/proc", "/sys", "/dev",
+		"/usr", "/bin", "/sbin", "/lib", "/lib64",
+		"/boot", "/var/lib", "/var/log", "/run",
+		"/Windows", `C:\Windows`,
+	}
+	for _, s := range sensitive {
+		if clean == s || strings.HasPrefix(clean, s+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 type SavedSettings struct {
