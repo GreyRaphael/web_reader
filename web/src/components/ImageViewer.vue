@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { FsItem } from '@/api/types'
 import { AUTH_EXPIRED_EVENT, getSession, rawFileUrl } from '@/api/client'
 import { ICON_PATHS } from '@/utils/icons'
@@ -9,6 +9,8 @@ const failed = ref(false)
 const loading = ref(true)
 const retryKey = ref(0)
 const lightboxOpen = ref(false)
+const lightboxRef = ref<HTMLDialogElement | null>(null)
+let previouslyFocused: HTMLElement | null = null
 const imageSource = computed(() => `${rawFileUrl(props.item.path)}&retry=${retryKey.value}`)
 
 watch(
@@ -17,7 +19,7 @@ watch(
     failed.value = false
     loading.value = true
     retryKey.value = 0
-    lightboxOpen.value = false
+    closeLightbox()
   },
 )
 
@@ -39,16 +41,28 @@ function retry(): void {
 }
 
 function openLightbox(): void {
+  previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
   lightboxOpen.value = true
+  nextTick(() => {
+    const dialog = lightboxRef.value
+    if (dialog && !dialog.open) dialog.showModal()
+    lightboxRef.value?.querySelector<HTMLButtonElement>('.lightbox-close')?.focus()
+  })
 }
 
 function closeLightbox(): void {
   lightboxOpen.value = false
+  previouslyFocused?.focus()
+  previouslyFocused = null
 }
 
-function onLightboxKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeLightbox()
-}
+onBeforeUnmount(() => {
+  if (lightboxOpen.value) {
+    if (lightboxRef.value?.open) lightboxRef.value.close()
+    previouslyFocused?.focus()
+    previouslyFocused = null
+  }
+})
 </script>
 
 <template>
@@ -73,12 +87,12 @@ function onLightboxKeydown(e: KeyboardEvent): void {
     />
 
     <Teleport to="body">
-      <div
+      <dialog
         v-if="lightboxOpen"
+        ref="lightboxRef"
         class="lightbox-backdrop"
-        @click="closeLightbox"
-        @keydown="onLightboxKeydown"
-        tabindex="0"
+        @click.self="closeLightbox"
+        @cancel.prevent="closeLightbox"
       >
         <button class="lightbox-close" @click="closeLightbox" aria-label="关闭">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="ICON_PATHS['x']"></svg>
@@ -87,9 +101,9 @@ function onLightboxKeydown(e: KeyboardEvent): void {
           :src="imageSource"
           :alt="item.name"
           class="lightbox-image"
-          @click.stop
+          @click.stop="closeLightbox"
         />
-      </div>
+      </dialog>
     </Teleport>
   </div>
 </template>
