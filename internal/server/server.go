@@ -46,7 +46,7 @@ func New(cfg Config) *Server {
 	mux.Handle("GET /api/fs/raw", cfg.Sessions.Require(http.HandlerFunc(rawHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/file", cfg.Sessions.Require(http.HandlerFunc(createFileHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/dir", cfg.Sessions.Require(http.HandlerFunc(createDirHandler(cfg.Files))))
-	mux.Handle("POST /api/fs/upload", cfg.Sessions.Require(http.HandlerFunc(uploadHandler(cfg.Files))))
+	mux.Handle("POST /api/fs/upload", cfg.Sessions.Require(http.HandlerFunc(uploadHandler(cfg.Files, cfg.AppConfig.MaxUploadSize))))
 	mux.Handle("POST /api/fs/rename", cfg.Sessions.Require(http.HandlerFunc(renameHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/move", cfg.Sessions.Require(http.HandlerFunc(moveHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/zip", cfg.Sessions.Require(http.HandlerFunc(zipHandler(cfg.Files))))
@@ -146,7 +146,7 @@ func writeFileError(w http.ResponseWriter, err error) {
 	case errors.Is(err, workspacefs.ErrNotFile):
 		writeError(w, http.StatusBadRequest, "not_a_file", "Path is not a file")
 	case errors.Is(err, workspacefs.ErrFileTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "File exceeds the configured preview limit")
+		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "File exceeds the configured size limit")
 	case errors.Is(err, workspacefs.ErrInvalidEncoding):
 		writeError(w, http.StatusUnsupportedMediaType, "invalid_text_encoding", "File is not valid UTF-8")
 	case errors.Is(err, workspacefs.ErrAlreadyExists):
@@ -198,7 +198,7 @@ func createDirHandler(service *workspacefs.Service) http.HandlerFunc {
 	}
 }
 
-func uploadHandler(service *workspacefs.Service) http.HandlerFunc {
+func uploadHandler(service *workspacefs.Service, maxUploadSize int64) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Query().Get("path")
 		if path == "" {
@@ -206,8 +206,14 @@ func uploadHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 		defer r.Body.Close()
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 		item, err := service.SaveUpload(path, r.Body)
 		if err != nil {
+			var maxErr *http.MaxBytesError
+			if errors.As(err, &maxErr) {
+				writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "Upload exceeds the configured size limit")
+				return
+			}
 			writeFileError(w, err)
 			return
 		}

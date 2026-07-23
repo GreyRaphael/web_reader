@@ -441,6 +441,13 @@ func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
 	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
 		return Item{}, ErrOutsideRoot
 	}
+	if info, err := os.Lstat(fullPath); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return Item{}, ErrOutsideRoot
+		}
+	} else if !os.IsNotExist(err) {
+		return Item{}, err
+	}
 	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return Item{}, err

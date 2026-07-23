@@ -144,6 +144,7 @@ nohup ./web-reader > web-reader.log 2>&1 &
 | `--password-hash` | `WEB_READER_ADMIN_PASSWORD_HASH` | 无 | **必填**，bcrypt 加密密码哈希 |
 | `--session-ttl` | `WEB_READER_SESSION_TTL` | `24h` | 登录 Session 有效期 |
 | `--max-text-size` | `WEB_READER_MAX_TEXT_SIZE` | `10MiB` | 在线文本预览与编辑的文件大小上限 |
+| `--max-upload-size` | `WEB_READER_MAX_UPLOAD_SIZE` | `20MiB` | 文件上传（保存）的大小上限 |
 | `--secure-cookie` | `WEB_READER_SECURE_COOKIE` | `false` | 使用 HTTPS 部署时请开启该参数 |
 
 ### 💡 在线动态变更 Workspace

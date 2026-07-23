@@ -15,13 +15,14 @@ import (
 )
 
 type Config struct {
-	Addr         string
-	Workspace    string
-	Username     string
-	PasswordHash []byte
-	SessionTTL   time.Duration
-	MaxTextSize  int64
-	SecureCookie bool
+	Addr          string
+	Workspace     string
+	Username      string
+	PasswordHash  []byte
+	SessionTTL    time.Duration
+	MaxTextSize   int64
+	MaxUploadSize int64
+	SecureCookie  bool
 }
 
 func Parse(args []string) (Config, error) {
@@ -31,6 +32,7 @@ func Parse(args []string) (Config, error) {
 	var cfg Config
 	var sessionTTL string
 	var maxTextSize string
+	var maxUploadSize string
 	fs.StringVar(&cfg.Addr, "addr", envOr("WEB_READER_ADDR", "0.0.0.0:8848"), "HTTP listen address")
 	fs.StringVar(&cfg.Workspace, "workspace", os.Getenv("WEB_READER_WORKSPACE"), "workspace directory")
 	fs.StringVar(&cfg.Username, "admin-user", envOr("WEB_READER_ADMIN_USERNAME", "admin"), "administrator username")
@@ -38,6 +40,7 @@ func Parse(args []string) (Config, error) {
 	fs.StringVar(&passwordHash, "password-hash", passwordHash, "administrator bcrypt password hash")
 	fs.StringVar(&sessionTTL, "session-ttl", envOr("WEB_READER_SESSION_TTL", "24h"), "session lifetime")
 	fs.StringVar(&maxTextSize, "max-text-size", envOr("WEB_READER_MAX_TEXT_SIZE", "10MiB"), "maximum text preview size")
+	fs.StringVar(&maxUploadSize, "max-upload-size", envOr("WEB_READER_MAX_UPLOAD_SIZE", "20MiB"), "maximum upload size")
 	fs.BoolVar(&cfg.SecureCookie, "secure-cookie", envBool("WEB_READER_SECURE_COOKIE", false), "mark session cookie Secure")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
@@ -60,9 +63,13 @@ func Parse(args []string) (Config, error) {
 	if err != nil || cfg.SessionTTL <= 0 {
 		return Config{}, fmt.Errorf("invalid session TTL %q", sessionTTL)
 	}
-	cfg.MaxTextSize, err = parseBytes(maxTextSize)
-	if err != nil || cfg.MaxTextSize <= 0 {
-		return Config{}, fmt.Errorf("invalid maximum text size %q", maxTextSize)
+	cfg.MaxTextSize, err = parseBytesWithCap(maxTextSize, 256<<20)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.MaxUploadSize, err = parseBytesWithCap(maxUploadSize, 256<<20)
+	if err != nil {
+		return Config{}, err
 	}
 
 	if strings.TrimSpace(cfg.Workspace) == "" {
@@ -223,4 +230,15 @@ func parseBytes(value string) (int64, error) {
 		}
 	}
 	return strconv.ParseInt(s, 10, 64)
+}
+
+func parseBytesWithCap(value string, cap int64) (int64, error) {
+	parsed, err := parseBytes(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("invalid size %q", value)
+	}
+	if parsed > cap {
+		return 0, fmt.Errorf("size %q exceeds the %d byte cap", value, cap)
+	}
+	return parsed, nil
 }
