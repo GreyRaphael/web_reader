@@ -190,7 +190,7 @@ func SaveWorkspaceSetting(workspace string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file, out, 0644)
+	return os.WriteFile(file, out, 0o600)
 }
 
 func LoadSavedWorkspace() string {
