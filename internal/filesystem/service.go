@@ -149,6 +149,17 @@ func (s *Service) Resolve(relative string) (string, string, error) {
 	return real, cleaned, nil
 }
 
+func (s *Service) rejectSymlinkLeaf(full string) error {
+	info, err := os.Lstat(full)
+	if err != nil {
+		return err
+	}
+	if isSymlinkMode(info.Mode()) {
+		return ErrOutsideRoot
+	}
+	return nil
+}
+
 func (s *Service) List(relative string) ([]Item, error) {
 	full, logical, err := s.Resolve(relative)
 	if err != nil {
@@ -217,7 +228,12 @@ func (s *Service) ReadText(relative string) (TextFile, error) {
 	if err != nil {
 		return TextFile{}, err
 	}
-	info, err := os.Stat(full)
+	file, err := openFileNoFollow(full, os.O_RDONLY, 0)
+	if err != nil {
+		return TextFile{}, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
 	if err != nil {
 		return TextFile{}, err
 	}
@@ -227,11 +243,6 @@ func (s *Service) ReadText(relative string) (TextFile, error) {
 	if info.Size() > s.maxTextSize {
 		return TextFile{}, ErrFileTooLarge
 	}
-	file, err := os.Open(full)
-	if err != nil {
-		return TextFile{}, err
-	}
-	defer file.Close()
 	content, err := io.ReadAll(io.LimitReader(file, s.maxTextSize+1))
 	if err != nil {
 		return TextFile{}, err
@@ -257,7 +268,7 @@ func (s *Service) Open(relative string) (*os.File, os.FileInfo, Item, error) {
 	if err != nil {
 		return nil, nil, Item{}, err
 	}
-	file, err := os.Open(full)
+	file, err := openFileNoFollow(full, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, nil, Item{}, err
 	}
@@ -343,6 +354,9 @@ func (s *Service) Rename(relative, newName string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
+	if err := s.rejectSymlinkLeaf(full); err != nil {
+		return Item{}, err
+	}
 	parentDir := filepath.Dir(full)
 	newFull := filepath.Join(parentDir, newName)
 	relNew, err := filepath.Rel(s.root, newFull)
@@ -370,6 +384,9 @@ func (s *Service) Move(relative, targetDir string) (Item, error) {
 	}
 	full, _, err := s.Resolve(cleaned)
 	if err != nil {
+		return Item{}, err
+	}
+	if err := s.rejectSymlinkLeaf(full); err != nil {
 		return Item{}, err
 	}
 	targetFull, targetLogical, err := s.Resolve(targetDir)
@@ -402,6 +419,9 @@ func (s *Service) Delete(relative string) error {
 	}
 	full, _, err := s.Resolve(cleaned)
 	if err != nil {
+		return err
+	}
+	if err := s.rejectSymlinkLeaf(full); err != nil {
 		return err
 	}
 	info, err := os.Stat(full)
