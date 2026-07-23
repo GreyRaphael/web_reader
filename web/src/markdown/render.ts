@@ -174,7 +174,7 @@ export function renderMarkdown(source: string, currentPath: string): RenderedMar
   const markdown = createMarkdown(currentPath, headings)
   const rendered = markdown.render(source)
   const html = DOMPurify.sanitize(rendered, {
-    USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true },
+    USE_PROFILES: { html: true, mathMl: true },
     ADD_ATTR: [
       'target',
       'rel',

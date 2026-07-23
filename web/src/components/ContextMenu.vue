@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { iconSvg } from '@/utils/icons'
 
 export interface ContextMenuItem {
@@ -40,6 +40,10 @@ function close(handler: () => void): void {
   handler()
   emit('close')
 }
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
 
 watch(
   () => props.items,
