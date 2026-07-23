@@ -63,20 +63,31 @@ func main() {
 	defer stop()
 	go sessions.RunCleanup(ctx)
 
+	httpServer := app.HTTPServer()
+	serveErr := make(chan error, 1)
 	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := app.HTTPServer().Shutdown(shutdownCtx); err != nil {
-			slog.Error("graceful shutdown failed", "error", err)
-		}
+		slog.Info("web reader starting", "addr", cfg.Addr, "workspace", cfg.Workspace, "admin_user", cfg.Username)
+		serveErr <- httpServer.ListenAndServe()
 	}()
 
-	slog.Info("web reader starting", "addr", cfg.Addr, "workspace", cfg.Workspace, "admin_user", cfg.Username)
-	if err := app.HTTPServer().ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("web reader stopped unexpectedly", "error", err)
-		os.Exit(1)
+	select {
+	case <-ctx.Done():
+		stop()
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("web reader stopped unexpectedly", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("web reader stopped")
+		return
 	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
+	}
+	<-serveErr
 	slog.Info("web reader stopped")
 }
 
