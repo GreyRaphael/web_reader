@@ -21,7 +21,7 @@ function apiUrl(endpoint: string, params?: Record<string, string>): string {
 async function request<T>(endpoint: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
-  if (init.body !== undefined) {
+  if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
@@ -46,12 +46,12 @@ async function request<T>(endpoint: string, init: RequestInit = {}): Promise<T> 
 
   if (!response.ok) {
     let message = `请求失败（${response.status}）`
+    const textBody = await response.clone().text().catch(() => '')
     try {
       const payload = (await response.json()) as { error?: string; message?: string }
       message = payload.message || payload.error || message
     } catch {
-      const text = await response.text().catch(() => '')
-      if (text.trim()) message = text.trim()
+      if (textBody.trim()) message = textBody.trim()
     }
 
     if (response.status === 401 && typeof window !== 'undefined') {

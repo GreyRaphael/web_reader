@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getFileMeta, getTextFile, logout } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
-import { storedBoolean, storedNumber } from '@/utils/storage'
+import { storedBoolean, storedNumber, setStoredNumber, storedUnboundedNumber } from '@/utils/storage'
 import type { FsItem, TextResponse } from '@/api/types'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
@@ -50,11 +50,11 @@ const mobileRightOpen = ref(false)
 const mobileViewport = ref(false)
 const leftWidth = ref(storedWidth(LEFT_WIDTH_KEY, 286))
 const rightWidth = ref(storedWidth(RIGHT_WIDTH_KEY, 264))
-const fontSizeOffset = ref(Number(window.localStorage.getItem('web-reader-font-offset')) || 0)
+const fontSizeOffset = ref(storedUnboundedNumber('web-reader-font-offset', 0))
 function changeFontSize(delta: number) {
   if (delta === 0) fontSizeOffset.value = 0
   else fontSizeOffset.value += delta
-  window.localStorage.setItem('web-reader-font-offset', String(fontSizeOffset.value))
+  setStoredNumber('web-reader-font-offset', fontSizeOffset.value)
 }
 const signingOut = ref(false)
 const userMenuOpen = ref(false)
