@@ -111,7 +111,7 @@ func (s *Store) Cleanup() {
 }
 
 func (s *Store) RunCleanup(ctx context.Context) {
-	interval := minDuration(s.ttl/2, 30*time.Minute)
+	interval := min(s.ttl/2, 30*time.Minute)
 	if interval < time.Minute {
 		interval = time.Minute
 	}
@@ -135,11 +135,4 @@ func (s *Store) Require(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func minDuration(a, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
 }

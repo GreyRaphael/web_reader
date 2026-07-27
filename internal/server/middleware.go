@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"runtime/debug"
 	"time"
 )
@@ -32,11 +33,31 @@ func (r *responseRecorder) Write(body []byte) (int, error) {
 	return count, err
 }
 
+func (r *responseRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
+type bodyTrackingWriter struct {
+	http.ResponseWriter
+	started bool
+}
+
+func (b *bodyTrackingWriter) WriteHeader(status int) {
+	b.ResponseWriter.WriteHeader(status)
+}
+
+func (b *bodyTrackingWriter) Write(body []byte) (int, error) {
+	b.started = true
+	return b.ResponseWriter.Write(body)
+}
+
+func (b *bodyTrackingWriter) Unwrap() http.ResponseWriter { return b.ResponseWriter }
+
+var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		requestID := r.Header.Get("X-Request-ID")
-		if requestID == "" {
+		if requestID == "" || !requestIDPattern.MatchString(requestID) {
 			requestID = newRequestID()
 		}
 		w.Header().Set("X-Request-ID", requestID)
@@ -69,6 +90,10 @@ func recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
+type securityConfig struct {
+	secureCookie bool
+}
+
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -77,6 +102,14 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		next.ServeHTTP(w, r)
+	})
+}
+
+func securityHeadersWithHSTS(next http.Handler) http.Handler {
+	base := securityHeaders(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		base.ServeHTTP(w, r)
 	})
 }
 

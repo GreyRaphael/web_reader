@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
@@ -56,6 +57,9 @@ func New(cfg Config) *Server {
 	mux.Handle("/", spaHandler(cfg.Assets))
 
 	handler := securityHeaders(recoverPanic(requestLogger(mux)))
+	if cfg.AppConfig.SecureCookie {
+		handler = securityHeadersWithHSTS(recoverPanic(requestLogger(mux)))
+	}
 	return &Server{
 		config: cfg,
 		http: &http.Server{
@@ -167,7 +171,7 @@ func createFileHandler(service *workspacefs.Service) http.HandlerFunc {
 			Path string `json:"path"`
 		}{}
 		if err := decodeJSONBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON request body")
 			return
 		}
 		item, err := service.CreateFile(body.Path)
@@ -185,7 +189,7 @@ func createDirHandler(service *workspacefs.Service) http.HandlerFunc {
 			Path string `json:"path"`
 		}{}
 		if err := decodeJSONBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON request body")
 			return
 		}
 		item, err := service.CreateDir(body.Path)
@@ -227,7 +231,7 @@ func renameHandler(service *workspacefs.Service) http.HandlerFunc {
 			NewName string `json:"newName"`
 		}{}
 		if err := decodeJSONBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON request body")
 			return
 		}
 		item, err := service.Rename(body.Path, body.NewName)
@@ -246,7 +250,7 @@ func moveHandler(service *workspacefs.Service) http.HandlerFunc {
 			TargetDir string `json:"targetDir"`
 		}{}
 		if err := decodeJSONBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON request body")
 			return
 		}
 		item, err := service.Move(body.Path, body.TargetDir)
@@ -268,16 +272,20 @@ func zipHandler(service *workspacefs.Service) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
 		w.Header().Set("Cache-Control", "private, max-age=60")
-		filename, err := service.StreamZip(dirPath, w, func(name string) {
+		tracker := &bodyTrackingWriter{ResponseWriter: w}
+		_, err := service.StreamZip(dirPath, tracker, func(name string) {
 			if formatted := mime.FormatMediaType("attachment", map[string]string{"filename": name}); formatted != "" {
 				w.Header().Set("Content-Disposition", formatted)
 			}
 		})
 		if err != nil {
+			if tracker.started {
+				slog.Error("zip stream failed after body started", "path", dirPath, "error", err)
+				return
+			}
 			writeFileError(w, err)
 			return
 		}
-		_ = filename
 	}
 }
 
@@ -324,7 +332,8 @@ func setWorkspaceHandler(service *workspacefs.Service) http.HandlerFunc {
 		}
 		cleanPath, err := service.SetRoot(targetPath)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_workspace", err.Error())
+			slog.Warn("workspace switch rejected", "error", err)
+			writeError(w, http.StatusBadRequest, "invalid_workspace", "Workspace path is invalid, sensitive, or not a directory")
 			return
 		}
 		_ = config.SaveWorkspaceSetting(cleanPath)

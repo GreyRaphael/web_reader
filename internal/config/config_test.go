@@ -8,9 +8,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const testBcryptCost = 10
+
 func validHash(t *testing.T) string {
 	t.Helper()
-	hash, err := bcrypt.GenerateFromPassword([]byte("reader-test"), bcrypt.MinCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte("reader-test"), testBcryptCost)
 	if err != nil {
 		t.Fatal(err)
 	}

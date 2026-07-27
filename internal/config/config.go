@@ -56,6 +56,10 @@ func Parse(args []string) (Config, error) {
 	if _, err := bcrypt.Cost([]byte(passwordHash)); err != nil {
 		return Config{}, fmt.Errorf("invalid bcrypt password hash: %w", err)
 	}
+	cost, _ := bcrypt.Cost([]byte(passwordHash))
+	if cost < 10 {
+		return Config{}, fmt.Errorf("password hash cost %d is below the required minimum of 10", cost)
+	}
 	cfg.PasswordHash = []byte(passwordHash)
 
 	var err error
@@ -123,7 +127,10 @@ func ResolveWorkspaceDir(p string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
 	}
-	if isSensitiveSystemPath(realRoot) {
+	if realRoot == "" {
+		return "", errors.New("workspace cannot be empty")
+	}
+	if IsSensitiveSystemPath(realRoot) {
 		return "", fmt.Errorf("workspace %q is a sensitive system directory", realRoot)
 	}
 	info, err := os.Stat(realRoot)
@@ -136,16 +143,29 @@ func ResolveWorkspaceDir(p string) (string, error) {
 	return filepath.Clean(realRoot), nil
 }
 
-func isSensitiveSystemPath(p string) bool {
+func IsSensitiveSystemPath(p string) bool {
 	clean := filepath.Clean(p)
 	sensitive := []string{
 		"/etc", "/root", "/proc", "/sys", "/dev",
 		"/usr", "/bin", "/sbin", "/lib", "/lib64",
-		"/boot", "/var/lib", "/var/log", "/run",
-		"/Windows", `C:\Windows`,
+		"/boot", "/var", "/run", "/snap",
+		"/Windows", `C:\Windows`, `C:\Program Files`,
 	}
 	for _, s := range sensitive {
 		if clean == s || strings.HasPrefix(clean, s+string(filepath.Separator)) {
+			return true
+		}
+	}
+	if isSecretFile(clean) {
+		return true
+	}
+	return false
+}
+
+func isSecretFile(p string) bool {
+	secretNames := []string{".ssh", ".gnupg", ".aws", ".config/systemd", ".config/web-reader"}
+	for _, name := range secretNames {
+		if strings.HasSuffix(p, string(filepath.Separator)+name) || filepath.Base(p) == name {
 			return true
 		}
 	}

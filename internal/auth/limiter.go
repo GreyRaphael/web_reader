@@ -28,6 +28,9 @@ func NewLoginLimiter(limit int, window time.Duration) *LoginLimiter {
 	}
 }
 
+// Allow reports whether the client is permitted to attempt a login.
+// It prunes expired entries but does not record a new attempt; call
+// RecordFailure after a failed credential check.
 func (l *LoginLimiter) Allow(r *http.Request) bool {
 	key := clientIP(r.RemoteAddr)
 	now := l.now()
@@ -41,12 +44,7 @@ func (l *LoginLimiter) Allow(r *http.Request) bool {
 			kept = append(kept, timestamp)
 		}
 	}
-	if len(kept) >= l.limit {
-		entry.times = kept
-		l.clients[key] = entry
-		return false
-	}
-	entry.times = append(kept, now)
+	entry.times = kept
 	l.clients[key] = entry
 	if len(l.clients) > 4096 {
 		for client, candidate := range l.clients {
@@ -55,7 +53,30 @@ func (l *LoginLimiter) Allow(r *http.Request) bool {
 			}
 		}
 	}
-	return true
+	return len(kept) < l.limit
+}
+
+// RecordFailure records a failed login attempt for the client.
+func (l *LoginLimiter) RecordFailure(r *http.Request) {
+	key := clientIP(r.RemoteAddr)
+	now := l.now()
+	cutoff := now.Add(-l.window)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	entry := l.clients[key]
+	kept := entry.times[:0]
+	for _, timestamp := range entry.times {
+		if timestamp.After(cutoff) {
+			kept = append(kept, timestamp)
+		}
+	}
+	entry.times = append(kept, now)
+	l.clients[key] = entry
+}
+
+// Window returns the configured rate-limit window, for use in Retry-After.
+func (l *LoginLimiter) Window() time.Duration {
+	return l.window
 }
 
 func clientIP(remoteAddr string) string {

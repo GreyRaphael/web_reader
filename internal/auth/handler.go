@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -27,12 +28,12 @@ type loginRequest struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !requireSameOrigin(r) {
 		writeJSONError(w, http.StatusForbidden, "invalid_origin", "Request origin is not allowed")
 		return
 	}
 	if !h.limiter.Allow(r) {
-		w.Header().Set("Retry-After", "60")
+		w.Header().Set("Retry-After", strconv.Itoa(int(h.limiter.Window().Seconds())))
 		writeJSONError(w, http.StatusTooManyRequests, "rate_limited", "Too many login attempts")
 		return
 	}
@@ -51,6 +52,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	usernameOK := subtle.ConstantTimeCompare([]byte(request.Username), []byte(h.username)) == 1
 	passwordOK := bcrypt.CompareHashAndPassword(h.passwordHash, []byte(request.Password)) == nil
 	if !usernameOK || !passwordOK {
+		h.limiter.RecordFailure(r)
 		writeJSONError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid username or password")
 		return
 	}
@@ -62,7 +64,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !requireSameOrigin(r) {
 		writeJSONError(w, http.StatusForbidden, "invalid_origin", "Request origin is not allowed")
 		return
 	}
@@ -85,6 +87,22 @@ func sameOrigin(r *http.Request) bool {
 	}
 	parsed, err := url.Parse(origin)
 	return err == nil && strings.EqualFold(parsed.Host, r.Host)
+}
+
+// requireSameOrigin enforces a strict same-origin check for state-changing
+// requests. Unlike sameOrigin, it rejects requests that omit the Origin
+// header entirely, since browsers always send Origin on same-origin fetch
+// POST/DELETE requests.
+func requireSameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Host, r.Host)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -142,4 +143,41 @@ func TestReadTextChecksLimitAndEncoding(t *testing.T) {
 	if !errors.Is(err, ErrFileTooLarge) {
 		t.Fatalf("expected size error, got %v", err)
 	}
+}
+
+func TestSetRootConcurrentWithMutators(t *testing.T) {
+	service, _ := newTestService(t)
+	altRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(altRoot, "file.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			target := service
+			if i%2 == 0 {
+				_, _ = target.SetRoot(altRoot)
+			} else {
+				_, _ = target.SetRoot(altRoot)
+			}
+		}(i)
+	}
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			switch i % 3 {
+			case 0:
+				_, _ = service.CreateFile(fmt.Sprintf("c%d.txt", i))
+			case 1:
+				_, _ = service.SaveUpload(fmt.Sprintf("u%d.txt", i), bytes.NewReader([]byte("data")))
+			case 2:
+				_, _ = service.Rename("notes.txt", fmt.Sprintf("notes%d.txt", i))
+			}
+		}(i)
+	}
+	wg.Wait()
 }

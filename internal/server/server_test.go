@@ -41,7 +41,7 @@ func newTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte("reader-test"), bcrypt.MinCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte("reader-test"), 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +64,7 @@ func loginCookie(t *testing.T, handler http.Handler) *http.Cookie {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"admin","password":"reader-test"}`))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://example.com")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -150,6 +151,7 @@ func TestProtectedFilesystemFlow(t *testing.T) {
 
 	logoutRequest := authenticatedRequest(http.MethodPost, "/api/auth/logout", cookie)
 	logoutRequest.Header.Set("Content-Type", "application/json")
+	logoutRequest.Header.Set("Origin", "http://example.com")
 	logoutResponse := httptest.NewRecorder()
 	handler.ServeHTTP(logoutResponse, logoutRequest)
 	if logoutResponse.Code != http.StatusOK {
@@ -207,6 +209,7 @@ func TestWorkspaceAPI(t *testing.T) {
 	newDir := t.TempDir()
 	postReq := httptest.NewRequest(http.MethodPost, "/api/workspace", strings.NewReader(`{"workspace":"`+newDir+`"}`))
 	postReq.Header.Set("Content-Type", "application/json")
+	postReq.Header.Set("Origin", "http://example.com")
 	postReq.AddCookie(cookie)
 	postRec := httptest.NewRecorder()
 	handler.ServeHTTP(postRec, postReq)

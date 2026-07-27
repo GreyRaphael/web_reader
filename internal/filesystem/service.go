@@ -17,6 +17,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"web_reader/internal/config"
 )
 
 var (
@@ -97,7 +99,7 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
 	}
-	if isSensitiveSystemPath(realRoot) {
+	if config.IsSensitiveSystemPath(realRoot) {
 		return "", fmt.Errorf("workspace %q is a sensitive system directory", realRoot)
 	}
 	info, err := os.Stat(realRoot)
@@ -112,22 +114,6 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	s.root = clean
 	s.mu.Unlock()
 	return clean, nil
-}
-
-func isSensitiveSystemPath(p string) bool {
-	clean := filepath.Clean(p)
-	sensitive := []string{
-		"/etc", "/root", "/proc", "/sys", "/dev",
-		"/usr", "/bin", "/sbin", "/lib", "/lib64",
-		"/boot", "/var/lib", "/var/log", "/run",
-		"/Windows", `C:\Windows`,
-	}
-	for _, s := range sensitive {
-		if clean == s || strings.HasPrefix(clean, s+string(filepath.Separator)) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Service) Resolve(relative string) (string, string, error) {
@@ -330,6 +316,7 @@ func (s *Service) createEntry(relative string, isDir bool) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
+	root := s.GetRoot()
 	fullPath := filepath.Join(fullParent, base)
 	real, err := filepath.EvalSymlinks(fullParent)
 	if err != nil {
@@ -339,7 +326,7 @@ func (s *Service) createEntry(relative string, isDir bool) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	relToRoot, err := filepath.Rel(s.root, real)
+	relToRoot, err := filepath.Rel(root, real)
 	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
 		return Item{}, ErrOutsideRoot
 	}
@@ -378,7 +365,8 @@ func (s *Service) Rename(relative, newName string) (Item, error) {
 	}
 	parentDir := filepath.Dir(full)
 	newFull := filepath.Join(parentDir, newName)
-	relNew, err := filepath.Rel(s.root, newFull)
+	root := s.GetRoot()
+	relNew, err := filepath.Rel(root, newFull)
 	if err != nil || relNew == ".." || strings.HasPrefix(relNew, ".."+string(filepath.Separator)) || filepath.IsAbs(relNew) {
 		return Item{}, ErrOutsideRoot
 	}
@@ -476,7 +464,8 @@ func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	relToRoot, err := filepath.Rel(s.root, real)
+	root := s.GetRoot()
+	relToRoot, err := filepath.Rel(root, real)
 	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
 		return Item{}, ErrOutsideRoot
 	}
