@@ -278,7 +278,8 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
       label: target.kind === 'directory' ? '下载 ZIP' : '下载',
       icon: 'download',
       action: () => {
-        const url = target.kind === 'directory' ? zipUrl(target.path) : rawFileUrl(target.path, true)
+        const url =
+          target.kind === 'directory' ? zipUrl(target.path) : rawFileUrl(target.path, true)
         window.open(url, '_blank')
       },
     },
@@ -348,7 +349,8 @@ async function onDrop(targetDir: string, event: DragEvent): Promise<void> {
   dragOverDir.value = null
   const sourcePath = event.dataTransfer?.getData('text/plain')
   if (!sourcePath || sourcePath === targetDir) return
-  const sourceParentDir = sourcePath.lastIndexOf('/') >= 0 ? sourcePath.substring(0, sourcePath.lastIndexOf('/')) : ''
+  const sourceParentDir =
+    sourcePath.lastIndexOf('/') >= 0 ? sourcePath.substring(0, sourcePath.lastIndexOf('/')) : ''
   if (sourceParentDir === targetDir) return
   try {
     await moveFile(sourcePath, targetDir)
@@ -439,7 +441,10 @@ onBeforeUnmount(() => controller?.abort())
         <span v-if="index > 0" class="bc-sep">/</span>
         <button
           class="bc-crumb"
-          :class="{ current: index === breadcrumb.length - 1, 'drag-over': dragOverDir !== null && dragOverDir === crumb.path }"
+          :class="{
+            current: index === breadcrumb.length - 1,
+            'drag-over': dragOverDir !== null && dragOverDir === crumb.path,
+          }"
           type="button"
           @click="navigateTo(crumb.path)"
           @dragover.prevent="onDragOverBreadcrumb(crumb.path, $event)"
@@ -468,7 +473,13 @@ onBeforeUnmount(() => controller?.abort())
         <span>{{ errorMessage }}</span>
         <button class="secondary-button" type="button" @click="loadDir(currentDir)">重试</button>
       </div>
-      <ul v-else class="file-tree" role="tree" aria-label="工作区文件" @contextmenu="handleContextMenu">
+      <ul
+        v-else
+        class="file-tree"
+        role="tree"
+        aria-label="工作区文件"
+        @contextmenu="handleContextMenu"
+      >
         <template v-for="item in items" :key="item.path">
           <li
             class="tree-node"
@@ -479,9 +490,25 @@ onBeforeUnmount(() => controller?.abort())
             @dragstart="onDragStart(item, $event)"
             @dragover="onDragOver(item, $event)"
             @dragleave="onDragLeave($event)"
-            @drop="onDrop(item.kind === 'directory' ? item.path : (item.path.lastIndexOf('/') >= 0 ? item.path.slice(0, item.path.lastIndexOf('/')) : currentDir), $event)"
+            @drop="
+              onDrop(
+                item.kind === 'directory'
+                  ? item.path
+                  : item.path.lastIndexOf('/') >= 0
+                    ? item.path.slice(0, item.path.lastIndexOf('/'))
+                    : currentDir,
+                $event,
+              )
+            "
           >
-            <div class="tree-row" :class="{ selected: selectedPath === item.path, 'drag-over': dragOverDir !== null && dragOverDir === item.path }" :data-tree-path="item.path">
+            <div
+              class="tree-row"
+              :class="{
+                selected: selectedPath === item.path,
+                'drag-over': dragOverDir !== null && dragOverDir === item.path,
+              }"
+              :data-tree-path="item.path"
+            >
               <button
                 v-if="item.kind === 'directory'"
                 class="tree-chevron"
@@ -498,7 +525,11 @@ onBeforeUnmount(() => controller?.abort())
                 @click="handleRowClick(item)"
                 @contextmenu="buildContextMenu(item, $event)"
               >
-                <span class="tree-icon" aria-hidden="true" v-html="iconSvg(fileIconName(item), 16)"></span>
+                <span
+                  class="tree-icon"
+                  aria-hidden="true"
+                  v-html="iconSvg(fileIconName(item), 16)"
+                ></span>
                 <span class="tree-name">{{ item.name }}</span>
               </button>
               <button

@@ -47,7 +47,10 @@ const lineNumbersText = computed(() => {
 })
 
 const isLargeFile = computed(() => {
-  return (props.content ? props.content.length : 0) > LARGE_FILE_BYTES || lineCount.value > LARGE_FILE_LINES
+  return (
+    (props.content ? props.content.length : 0) > LARGE_FILE_BYTES ||
+    lineCount.value > LARGE_FILE_LINES
+  )
 })
 
 function updateHighlighting() {

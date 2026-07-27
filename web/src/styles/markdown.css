@@ -10,11 +10,11 @@
   line-height: 1.42;
 }
 
-.markdown-body> :first-child {
+.markdown-body > :first-child {
   margin-top: 0;
 }
 
-.markdown-body> :last-child {
+.markdown-body > :last-child {
   margin-bottom: 0;
 }
 
@@ -70,7 +70,7 @@
   padding-left: 1.5em;
 }
 
-.markdown-body li+li {
+.markdown-body li + li {
   margin-top: 0.15em;
 }
 
@@ -133,7 +133,7 @@
   display: none;
 }
 
-.markdown-body :not(pre)>code {
+.markdown-body :not(pre) > code {
   padding: 0.14em 0.36em;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -430,8 +430,8 @@
   display: block;
 }
 
-.math-block>.katex-display,
-.math-display-inline>.katex-display {
+.math-block > .katex-display,
+.math-display-inline > .katex-display {
   width: max-content;
   min-width: 100%;
   margin: 0;
@@ -600,7 +600,9 @@
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .mermaid-btn svg {

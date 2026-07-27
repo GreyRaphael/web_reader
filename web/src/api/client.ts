@@ -46,7 +46,10 @@ async function request<T>(endpoint: string, init: RequestInit = {}): Promise<T> 
 
   if (!response.ok) {
     let message = `请求失败（${response.status}）`
-    const textBody = await response.clone().text().catch(() => '')
+    const textBody = await response
+      .clone()
+      .text()
+      .catch(() => '')
     try {
       const payload = (await response.json()) as { error?: string; message?: string }
       message = payload.message || payload.error || message

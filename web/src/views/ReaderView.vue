@@ -2,7 +2,12 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getFileMeta, getTextFile, logout } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
-import { storedBoolean, storedNumber, setStoredNumber, storedUnboundedNumber } from '@/utils/storage'
+import {
+  storedBoolean,
+  storedNumber,
+  setStoredNumber,
+  storedUnboundedNumber,
+} from '@/utils/storage'
 import type { FsItem, TextResponse } from '@/api/types'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
@@ -85,7 +90,7 @@ const workspaceStyle = computed(() => ({
   '--left-grip': leftVisible.value ? '5px' : '0px',
   '--right-column': rightVisible.value ? `${rightWidth.value}px` : '0px',
   '--right-grip': rightVisible.value ? '5px' : '0px',
-  '--markdown-font-size': `calc(clamp(14px, 1.25vw, 16px) + ${fontSizeOffset.value}px)`
+  '--markdown-font-size': `calc(clamp(14px, 1.25vw, 16px) + ${fontSizeOffset.value}px)`,
 }))
 
 function isMobile(): boolean {
@@ -417,19 +422,54 @@ onBeforeUnmount(() => {
       <div class="toolbar-section toolbar-end">
         <ThemeControl />
         <div class="font-controls">
-          <button class="font-btn" type="button" @click="changeFontSize(-1)" title="缩小字体" aria-label="缩小字体">A-</button>
-          <button class="font-btn" type="button" @click="changeFontSize(0)" title="重置字体大小" aria-label="重置字体大小">Aa</button>
-          <button class="font-btn" type="button" @click="changeFontSize(1)" title="放大字体" aria-label="放大字体">A+</button>
+          <button
+            class="font-btn"
+            type="button"
+            @click="changeFontSize(-1)"
+            title="缩小字体"
+            aria-label="缩小字体"
+          >
+            A-
+          </button>
+          <button
+            class="font-btn"
+            type="button"
+            @click="changeFontSize(0)"
+            title="重置字体大小"
+            aria-label="重置字体大小"
+          >
+            Aa
+          </button>
+          <button
+            class="font-btn"
+            type="button"
+            @click="changeFontSize(1)"
+            title="放大字体"
+            aria-label="放大字体"
+          >
+            A+
+          </button>
         </div>
         <div class="user-menu-container">
-          <button class="user-avatar" type="button" @click="userMenuOpen = !userMenuOpen" :title="props.username" v-html="iconSvg('user', 16)"></button>
+          <button
+            class="user-avatar"
+            type="button"
+            @click="userMenuOpen = !userMenuOpen"
+            :title="props.username"
+            v-html="iconSvg('user', 16)"
+          ></button>
           <Transition name="dropdown">
             <div v-if="userMenuOpen" class="user-dropdown">
               <button class="user-dropdown-btn" type="button" @click="openSettings">
                 <span>⚙️</span>
                 设置 (Settings)
               </button>
-              <button class="user-dropdown-btn danger" type="button" :disabled="signingOut" @click="signOut">
+              <button
+                class="user-dropdown-btn danger"
+                type="button"
+                :disabled="signingOut"
+                @click="signOut"
+              >
                 <span v-html="iconSvg('log-out', 14)"></span>
                 {{ signingOut ? '退出中…' : '退出登录' }}
               </button>
@@ -450,9 +490,14 @@ onBeforeUnmount(() => {
         :role="mobileViewport ? 'dialog' : 'complementary'"
         :aria-modal="mobileViewport ? 'true' : undefined"
         :aria-label="mobileViewport ? '工作区文件' : undefined"
-        :inert="mobileViewport ? (!mobileLeftOpen || undefined) : (!leftVisible || undefined)"
+        :inert="mobileViewport ? !mobileLeftOpen || undefined : !leftVisible || undefined"
       >
-        <FileTree :key="fileTreeKey" :selected-path="selectedItem?.path || ''" @open="handleTreeOpen" @close="closeDrawers()" />
+        <FileTree
+          :key="fileTreeKey"
+          :selected-path="selectedItem?.path || ''"
+          @open="handleTreeOpen"
+          @close="closeDrawers()"
+        />
       </aside>
 
       <div
@@ -475,7 +520,7 @@ onBeforeUnmount(() => {
         :loading="loadingPreview"
         :error="previewError"
         :theme="resolved"
-        :inert="(mobileLeftOpen || mobileRightOpen) || undefined"
+        :inert="mobileLeftOpen || mobileRightOpen || undefined"
         @headings="headings = $event"
         @active-heading="activeHeading = $event"
         @open-path="handleInternalOpen"
@@ -505,9 +550,14 @@ onBeforeUnmount(() => {
         :role="mobileViewport ? 'dialog' : 'complementary'"
         :aria-modal="mobileViewport ? 'true' : undefined"
         :aria-label="mobileViewport ? '文章大纲' : undefined"
-        :inert="mobileViewport ? (!mobileRightOpen || undefined) : (!rightVisible || undefined)"
+        :inert="mobileViewport ? !mobileRightOpen || undefined : !rightVisible || undefined"
       >
-        <OutlinePanel :headings="headings" :active-id="activeHeading" @select="selectHeading" @close="closeDrawers()" />
+        <OutlinePanel
+          :headings="headings"
+          :active-id="activeHeading"
+          @select="selectHeading"
+          @close="closeDrawers()"
+        />
       </aside>
 
       <button

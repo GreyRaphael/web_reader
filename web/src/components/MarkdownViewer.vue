@@ -645,7 +645,8 @@ function handleClick(event: MouseEvent): void {
     const action = mermaidBtn.dataset.action
     if (action === 'maximize') {
       const svgHTML = mermaidDiagram.querySelector('.mermaid-output')?.innerHTML
-      const sourceCode = mermaidDiagram.querySelector<HTMLElement>('.mermaid-source')?.textContent ?? ''
+      const sourceCode =
+        mermaidDiagram.querySelector<HTMLElement>('.mermaid-source')?.textContent ?? ''
       if (svgHTML) {
         fullscreenMermaidHTML.value = svgHTML
         fullscreenMermaidSource.value = sourceCode
@@ -801,12 +802,7 @@ onBeforeUnmount(() => {
         <span v-if="isDirty" class="dirty-tag">* 已修改</span>
         <span v-if="saveSuccess" class="success-tag">✓ 已保存</span>
         <span v-if="saveError" class="error-tag">{{ saveError }}</span>
-        <button
-          type="button"
-          class="save-btn"
-          :disabled="!isDirty || isSaving"
-          @click="handleSave"
-        >
+        <button type="button" class="save-btn" :disabled="!isDirty || isSaving" @click="handleSave">
           {{ isSaving ? '保存中…' : '保存' }}
         </button>
         <button
@@ -867,7 +863,13 @@ onBeforeUnmount(() => {
         </div>
       </Transition>
 
-      <dialog v-if="fullscreenMermaidHTML" ref="modalDialogRef" class="mermaid-modal" @close="closeFullscreen" @cancel.prevent="closeFullscreen">
+      <dialog
+        v-if="fullscreenMermaidHTML"
+        ref="modalDialogRef"
+        class="mermaid-modal"
+        @close="closeFullscreen"
+        @cancel.prevent="closeFullscreen"
+      >
         <div class="mermaid-modal-backdrop" @click="closeFullscreen"></div>
         <div class="mermaid-modal-content">
           <div class="mermaid-toolbar modal-toolbar">

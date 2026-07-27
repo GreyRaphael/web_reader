@@ -70,7 +70,9 @@ onMounted(async () => {
   if (dialog && !dialog.open) {
     dialog.showModal()
   }
-  const focusable = dialog?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])')
+  const focusable = dialog?.querySelector<HTMLElement>(
+    'input:not([disabled]), button:not([disabled])',
+  )
   focusable?.focus()
 })
 
@@ -80,7 +82,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <dialog ref="dialogEl" class="modal-dialog" aria-labelledby="settings-dialog-title" @click.self="closeDialog" @cancel.prevent="closeDialog">
+  <dialog
+    ref="dialogEl"
+    class="modal-dialog"
+    aria-labelledby="settings-dialog-title"
+    @click.self="closeDialog"
+    @cancel.prevent="closeDialog"
+  >
     <div class="modal-inner">
       <div class="modal-header">
         <h3 id="settings-dialog-title" class="modal-title">
@@ -110,7 +118,8 @@ onBeforeUnmount(() => {
           服务器工作区绝对路径 (Server Workspace Path)
         </label>
         <p class="form-help">
-          支持绝对路径或 <code>~/</code> 前缀（自动展开为当前用户目录，如 <code>~/workspace</code>）。若路径不存在将自动创建。
+          支持绝对路径或 <code>~/</code> 前缀（自动展开为当前用户目录，如
+          <code>~/workspace</code>）。若路径不存在将自动创建。
         </p>
 
         <div class="input-group">

@@ -63,7 +63,12 @@ function onDragLeave(_item: FsItem, event: DragEvent): void {
 function onDrop(item: FsItem, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  const targetDir = item.kind === 'directory' ? item.path : (item.path.lastIndexOf('/') >= 0 ? item.path.slice(0, item.path.lastIndexOf('/')) : '')
+  const targetDir =
+    item.kind === 'directory'
+      ? item.path
+      : item.path.lastIndexOf('/') >= 0
+        ? item.path.slice(0, item.path.lastIndexOf('/'))
+        : ''
   emit('drop', targetDir, event)
 }
 
@@ -74,7 +79,6 @@ function onContextMenu(item: FsItem, event: MouseEvent): void {
 function handleClick(item: FsItem): void {
   emit('click', item)
 }
-
 </script>
 
 <template>

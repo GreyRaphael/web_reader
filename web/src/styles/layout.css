@@ -452,7 +452,9 @@
   background: var(--surface-muted);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 .outline-toggle-btn:hover {
@@ -879,24 +881,24 @@
   content: '';
 }
 
-.outline-link[style*="--outline-depth: 1"]::after,
-.outline-link[style*="--outline-depth: 2"]::after,
-.outline-link[style*="--outline-depth: 3"]::after {
+.outline-link[style*='--outline-depth: 1']::after,
+.outline-link[style*='--outline-depth: 2']::after,
+.outline-link[style*='--outline-depth: 3']::after {
   width: 1px;
   background: var(--border);
   height: calc(100% - 17px);
   top: 17px;
 }
 
-.outline-link[style*="--outline-depth: 1"]::after {
+.outline-link[style*='--outline-depth: 1']::after {
   left: 10px;
 }
 
-.outline-link[style*="--outline-depth: 2"]::after {
+.outline-link[style*='--outline-depth: 2']::after {
   left: calc(10px + 13px);
 }
 
-.outline-link[style*="--outline-depth: 3"]::after {
+.outline-link[style*='--outline-depth: 3']::after {
   left: calc(10px + 26px);
 }
 
@@ -914,7 +916,9 @@
   height: 16px;
   border-radius: 4px;
   color: var(--text-faint);
-  transition: color 0.1s, background-color 0.1s;
+  transition:
+    color 0.1s,
+    background-color 0.1s;
 }
 
 .outline-chevron:hover {

@@ -48,7 +48,6 @@ function toggleCollapse(id: string, event: Event) {
   }
 }
 
-
 function collapseLevel2() {
   const newSet = new Set<string>()
   headingsWithMeta.value.forEach((h) => {
@@ -67,7 +66,7 @@ watch(
   () => props.headings,
   () => {
     collapsedIds.value.clear()
-  }
+  },
 )
 </script>
 
