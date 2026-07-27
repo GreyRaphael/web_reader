@@ -66,6 +66,17 @@ function scheduleTimeout(fn: () => void, delay: number): number {
   return id
 }
 
+let debounceRenderTimer: number | null = null
+function debounceRender(sourceText: string, delay = 200): void {
+  if (debounceRenderTimer !== null) {
+    clearTimeout(debounceRenderTimer)
+  }
+  debounceRenderTimer = scheduleTimeout(() => {
+    debounceRenderTimer = null
+    void updateMarkdownText(sourceText)
+  }, delay)
+}
+
 function showContextualToast(btn: HTMLButtonElement, message: string, isError = false) {
   const rect = btn.getBoundingClientRect()
   const top = Math.max(10, rect.top - 8)
@@ -706,7 +717,7 @@ function handleClick(event: MouseEvent): void {
     scrollToHeading(id)
     const url = new URL(window.location.href)
     url.hash = encodeURIComponent(id)
-    window.history.pushState({}, '', url)
+    window.history.replaceState({}, '', url)
   }
 }
 
@@ -730,7 +741,7 @@ watch(
 
 watch(editableContent, (newText) => {
   if (viewMode.value !== 'edit') {
-    updateMarkdownText(newText)
+    debounceRender(newText)
   }
 })
 
@@ -756,6 +767,10 @@ watch(fullscreenMermaidHTML, async (html) => {
 
 onBeforeUnmount(() => {
   mermaidRun += 1
+  if (debounceRenderTimer !== null) {
+    clearTimeout(debounceRenderTimer)
+    debounceRenderTimer = null
+  }
   removeScrollSpy()
   cleanupPanzoom()
   closeFullscreen()
@@ -838,7 +853,6 @@ onBeforeUnmount(() => {
           class="markdown-body"
           aria-label="Markdown 内容"
           @click="handleClick"
-          @load.capture="requestScrollUpdate"
           v-html="rendered.html"
         ></article>
         <div v-else class="preview-state error" role="alert">

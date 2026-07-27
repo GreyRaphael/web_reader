@@ -14,9 +14,30 @@ describe('OutlinePanel', () => {
       },
     })
 
-    const links = wrapper.findAll('.outline-link')
-    expect(links[0]?.attributes('style')).toContain('--outline-depth: 0')
-    expect(links[1]?.attributes('style')).toContain('--outline-depth: 1')
-    expect(links[1]?.attributes('aria-current')).toBe('location')
+    const rows = wrapper.findAll('.outline-link')
+    expect(rows[0]?.attributes('style')).toContain('--outline-depth: 0')
+    expect(rows[1]?.attributes('style')).toContain('--outline-depth: 1')
+
+    const activeTitleBtn = rows[1]?.find('.outline-title-btn')
+    expect(activeTitleBtn?.attributes('aria-current')).toBe('location')
+  })
+
+  it('toggles child collapse via an accessible button with aria-expanded', async () => {
+    const wrapper = mount(OutlinePanel, {
+      props: {
+        headings: [
+          { id: 'parent', title: 'Parent', level: 2 },
+          { id: 'child', title: 'Child', level: 3 },
+        ],
+        activeId: 'parent',
+      },
+    })
+
+    const toggle = wrapper.find('.outline-chevron')
+    expect(toggle.exists()).toBe(true)
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+
+    await toggle.trigger('click')
+    expect(wrapper.find('.outline-chevron').attributes('aria-expanded')).toBe('false')
   })
 })

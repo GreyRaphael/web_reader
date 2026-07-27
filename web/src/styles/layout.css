@@ -859,11 +859,8 @@
   min-height: 34px;
   overflow: hidden;
   padding: 7px 9px 7px calc(10px + min(var(--outline-depth), 3) * 13px);
-  border: 0;
   border-radius: 6px;
-  background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
   font-size: 12px;
   line-height: 1.35;
   text-align: left;
@@ -902,7 +899,27 @@
   left: calc(10px + 26px);
 }
 
+.outline-title-btn {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.outline-title-btn:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .outline-title {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -914,11 +931,20 @@
   justify-content: center;
   width: 16px;
   height: 16px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
+  background: transparent;
   color: var(--text-faint);
+  cursor: pointer;
   transition:
     color 0.1s,
     background-color 0.1s;
+}
+
+.outline-chevron:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
 }
 
 .outline-chevron:hover {

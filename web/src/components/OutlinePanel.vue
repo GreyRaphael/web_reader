@@ -105,30 +105,37 @@ watch(
       </div>
     </div>
     <nav v-if="headings.length" class="outline-nav" aria-label="文章大纲">
-      <button
+      <div
         v-for="heading in visibleHeadings"
         :key="heading.id"
         class="outline-link"
         :class="{ active: heading.id === activeId }"
         :style="{ '--outline-depth': Math.max(0, heading.level - minimumLevel) }"
-        :aria-current="heading.id === activeId ? 'location' : undefined"
-        type="button"
-        @click="emit('select', heading.id)"
       >
-        <span
+        <button
           v-if="heading.hasChild"
           class="outline-chevron"
+          type="button"
+          :aria-expanded="!collapsedIds.has(heading.id)"
+          :aria-label="collapsedIds.has(heading.id) ? '展开子标题' : '折叠子标题'"
           v-html="iconSvg(collapsedIds.has(heading.id) ? 'chevron-right' : 'chevron-down', 14)"
           @click.stop="toggleCollapse(heading.id, $event)"
-        ></span>
+        ></button>
         <span v-else class="outline-chevron-spacer"></span>
-        <span class="outline-title">{{ heading.title }}</span>
+        <button
+          class="outline-title-btn"
+          :aria-current="heading.id === activeId ? 'location' : undefined"
+          type="button"
+          @click="emit('select', heading.id)"
+        >
+          <span class="outline-title">{{ heading.title }}</span>
+        </button>
         <span
           v-if="heading.level > minimumLevel"
           class="outline-guide"
           :style="{ left: `${10 + (heading.level - minimumLevel - 1) * 13}px` }"
         ></span>
-      </button>
+      </div>
     </nav>
     <div v-else class="outline-empty">
       <span aria-hidden="true" v-html="iconSvg('list', 28)"></span>

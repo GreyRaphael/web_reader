@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const LARGE_FILE_BYTES = 100 * 1024 // 100 KB
 const LARGE_FILE_LINES = 3000
+const textEncoder = new TextEncoder()
 
 const copied = ref(false)
 const isHighlighting = ref(false)
@@ -48,7 +49,7 @@ const lineNumbersText = computed(() => {
 
 const isLargeFile = computed(() => {
   return (
-    (props.content ? props.content.length : 0) > LARGE_FILE_BYTES ||
+    (props.content ? textEncoder.encode(props.content).length : 0) > LARGE_FILE_BYTES ||
     lineCount.value > LARGE_FILE_LINES
   )
 })

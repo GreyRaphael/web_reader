@@ -12,6 +12,19 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL('../internal/webui/dist', import.meta.url)),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          katex: ['katex'],
+          mermaid: ['mermaid'],
+          markdown: ['markdown-it'],
+          prism: ['prismjs'],
+          dompurify: ['dompurify'],
+          panzoom: ['panzoom'],
+          vue: ['vue'],
+        },
+      },
+    },
   },
   server: {
     proxy: {
