@@ -91,8 +91,8 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 		return "", fmt.Errorf("resolve workspace: %w", err)
 	}
 	if _, statErr := os.Stat(root); os.IsNotExist(statErr) {
-		if err := os.MkdirAll(root, 0755); err != nil {
-			return "", fmt.Errorf("create workspace directory: %w", err)
+		if mkdirErr := os.MkdirAll(root, 0755); mkdirErr != nil {
+			return "", fmt.Errorf("create workspace directory: %w", mkdirErr)
 		}
 	}
 	realRoot, err := filepath.EvalSymlinks(root)

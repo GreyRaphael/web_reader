@@ -33,20 +33,24 @@ func main() {
 		return
 	}
 
-	cfg, err := config.Parse(os.Args[1:])
+	if err := runServer(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func runServer(args []string) error {
+	cfg, err := config.Parse(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "configuration error:", err)
-		os.Exit(2)
+		return fmt.Errorf("configuration error: %w", err)
 	}
 	files, err := workspacefs.New(cfg.Workspace, cfg.MaxTextSize)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "workspace error:", err)
-		os.Exit(2)
+		return fmt.Errorf("workspace error: %w", err)
 	}
 	assets, err := webui.Dist()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "frontend assets error:", err)
-		os.Exit(2)
+		return fmt.Errorf("frontend assets error: %w", err)
 	}
 
 	sessions := auth.NewStore(cfg.SessionTTL, cfg.SecureCookie)
@@ -76,11 +80,10 @@ func main() {
 	case err := <-serveErr:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("web reader stopped unexpectedly", "error", err)
-			stop()
-			os.Exit(1)
+			return err
 		}
 		slog.Info("web reader stopped")
-		return
+		return nil
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -90,6 +93,7 @@ func main() {
 	}
 	<-serveErr
 	slog.Info("web reader stopped")
+	return nil
 }
 
 func hashPassword(input io.Reader, output io.Writer) error {
