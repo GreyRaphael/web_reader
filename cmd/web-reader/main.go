@@ -76,6 +76,7 @@ func main() {
 	case err := <-serveErr:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("web reader stopped unexpectedly", "error", err)
+			stop()
 			os.Exit(1)
 		}
 		slog.Info("web reader stopped")

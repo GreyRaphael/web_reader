@@ -90,7 +90,7 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve workspace: %w", err)
 	}
-	if _, err := os.Stat(root); os.IsNotExist(err) {
+	if _, statErr := os.Stat(root); os.IsNotExist(statErr) {
 		if err := os.MkdirAll(root, 0755); err != nil {
 			return "", fmt.Errorf("create workspace directory: %w", err)
 		}
@@ -360,8 +360,8 @@ func (s *Service) Rename(relative, newName string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	if err := s.rejectSymlinkLeaf(full); err != nil {
-		return Item{}, err
+	if sErr := s.rejectSymlinkLeaf(full); sErr != nil {
+		return Item{}, sErr
 	}
 	parentDir := filepath.Dir(full)
 	newFull := filepath.Join(parentDir, newName)
@@ -393,8 +393,8 @@ func (s *Service) Move(relative, targetDir string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	if err := s.rejectSymlinkLeaf(full); err != nil {
-		return Item{}, err
+	if sErr := s.rejectSymlinkLeaf(full); sErr != nil {
+		return Item{}, sErr
 	}
 	targetFull, targetLogical, err := s.Resolve(targetDir)
 	if err != nil {
@@ -428,8 +428,8 @@ func (s *Service) Delete(relative string) error {
 	if err != nil {
 		return err
 	}
-	if err := s.rejectSymlinkLeaf(full); err != nil {
-		return err
+	if sErr := s.rejectSymlinkLeaf(full); sErr != nil {
+		return sErr
 	}
 	info, err := os.Stat(full)
 	if err != nil {
@@ -469,12 +469,12 @@ func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
 	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
 		return Item{}, ErrOutsideRoot
 	}
-	if info, err := os.Lstat(fullPath); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
+	if lInfo, lErr := os.Lstat(fullPath); lErr == nil {
+		if lInfo.Mode()&os.ModeSymlink != 0 {
 			return Item{}, ErrOutsideRoot
 		}
-	} else if !os.IsNotExist(err) {
-		return Item{}, err
+	} else if !os.IsNotExist(lErr) {
+		return Item{}, lErr
 	}
 	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {

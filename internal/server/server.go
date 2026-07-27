@@ -346,10 +346,7 @@ func decodeJSONBody(r *http.Request, target any) error {
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	return nil
+	return decoder.Decode(target)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

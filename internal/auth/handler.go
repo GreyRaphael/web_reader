@@ -80,15 +80,6 @@ func (h *Handler) Session(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"authenticated": false})
 }
 
-func sameOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return true
-	}
-	parsed, err := url.Parse(origin)
-	return err == nil && strings.EqualFold(parsed.Host, r.Host)
-}
-
 // requireSameOrigin enforces a strict same-origin check for state-changing
 // requests. Unlike sameOrigin, it rejects requests that omit the Origin
 // header entirely, since browsers always send Origin on same-origin fetch

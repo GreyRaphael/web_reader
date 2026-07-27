@@ -129,15 +129,15 @@ func TestReadTextChecksLimitAndEncoding(t *testing.T) {
 	if err != nil || text.Content != "hello" {
 		t.Fatalf("ReadText = %#v, %v", text, err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "bad.txt"), []byte{0xff, 0xfe}, 0o644); err != nil {
-		t.Fatal(err)
+	if wErr := os.WriteFile(filepath.Join(root, "bad.txt"), []byte{0xff, 0xfe}, 0o644); wErr != nil {
+		t.Fatal(wErr)
 	}
 	_, err = service.ReadText("bad.txt")
 	if !errors.Is(err, ErrInvalidEncoding) {
 		t.Fatalf("expected encoding error, got %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "large.txt"), make([]byte, 2048), 0o644); err != nil {
-		t.Fatal(err)
+	if wErr := os.WriteFile(filepath.Join(root, "large.txt"), make([]byte, 2048), 0o644); wErr != nil {
+		t.Fatal(wErr)
 	}
 	_, err = service.ReadText("large.txt")
 	if !errors.Is(err, ErrFileTooLarge) {
@@ -161,7 +161,7 @@ func TestSetRootConcurrentWithMutators(t *testing.T) {
 			if i%2 == 0 {
 				_, _ = target.SetRoot(altRoot)
 			} else {
-				_, _ = target.SetRoot(altRoot)
+				_ = target.GetRoot()
 			}
 		}(i)
 	}

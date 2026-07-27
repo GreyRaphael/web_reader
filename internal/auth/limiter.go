@@ -70,7 +70,8 @@ func (l *LoginLimiter) RecordFailure(r *http.Request) {
 			kept = append(kept, timestamp)
 		}
 	}
-	entry.times = append(kept, now)
+	kept = append(kept, now)
+	entry.times = kept
 	l.clients[key] = entry
 }
 

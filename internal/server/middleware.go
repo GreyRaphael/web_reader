@@ -90,10 +90,6 @@ func recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
-type securityConfig struct {
-	secureCookie bool
-}
-
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
