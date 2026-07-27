@@ -10,6 +10,7 @@ User=web-reader
 Group=web-reader
 WorkingDirectory=/opt/web-reader
 EnvironmentFile=/etc/web-reader/web-reader.env
+Environment=XDG_CONFIG_HOME=/etc/web-reader
 ExecStart=/opt/web-reader/web-reader
 Restart=on-failure
 RestartSec=3s
@@ -27,12 +28,19 @@ ProtectKernelLogs=true
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectSystem=strict
+ReadWritePaths=/srv/books /etc/web-reader
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictNamespaces=true
 RestrictRealtime=true
 LockPersonality=true
 CapabilityBoundingSet=
 AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+LimitNOFILE=4096
+MemoryMax=512M
+TasksMax=256
 
 [Install]
 WantedBy=multi-user.target

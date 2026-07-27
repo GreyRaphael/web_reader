@@ -171,6 +171,8 @@ sudo install -d -o root -g root /opt/web-reader
 sudo install -m 0755 build/web-reader /opt/web-reader/web-reader
 sudo install -d -o root -g web-reader -m 0750 /etc/web-reader
 sudo install -o root -g web-reader -m 0640 deploy/web-reader.env.example /etc/web-reader/web-reader.env
+# 创建并授权 workspace 目录（systemd 单元中的 ReadWritePaths 必须可写）
+sudo install -d -o web-reader -g web-reader -m 0750 /srv/books
 sudo install -m 0644 deploy/web-reader.service /etc/systemd/system/web-reader.service
 
 # 3. 编辑配置并启动
@@ -178,6 +180,8 @@ sudo nano /etc/web-reader/web-reader.env
 sudo systemctl daemon-reload
 sudo systemctl enable --now web-reader
 ```
+
+> **注意**：systemd 服务单元通过 `ProtectSystem=strict` 与 `ProtectHome=true` 做了强隔离，因此 **workspace 根目录与持久化配置目录必须显式列入 `ReadWritePaths`**。默认模板允许写入 `/srv/books`（workspace）与 `/etc/web-reader`（运行时设置 `settings.json`，通过 `XDG_CONFIG_HOME` 定向）。若你把 `WEB_READER_WORKSPACE` 指向其他路径，请同步修改 service 文件中的 `ReadWritePaths`。
 
 ---
 
