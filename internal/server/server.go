@@ -58,6 +58,7 @@ func New(cfg Config) *Server {
 	mux.Handle("POST /api/fs/rename", cfg.Sessions.Require(http.HandlerFunc(renameHandler(cfg.Files))))
 	mux.Handle("POST /api/fs/move", cfg.Sessions.Require(http.HandlerFunc(moveHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/zip", cfg.Sessions.Require(http.HandlerFunc(zipHandler(cfg.Files))))
+	mux.Handle("GET /api/fs/events", cfg.Sessions.Require(http.HandlerFunc(eventsHandler(cfg.Files))))
 	mux.Handle("DELETE /api/fs/delete", cfg.Sessions.Require(http.HandlerFunc(deleteHandler(cfg.Files))))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "API route not found")
@@ -193,7 +194,11 @@ func rawHandler(service *workspacefs.Service) http.HandlerFunc {
 			w.Header().Set("Content-Disposition", formatted)
 		}
 		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'")
-		w.Header().Set("Cache-Control", "private, max-age=60")
+		if workspacefs.IsInlineImage(mimeType) {
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+		} else {
+			w.Header().Set("Cache-Control", "private, max-age=60")
+		}
 		w.Header().Set("ETag", `W/"`+strconv.FormatInt(info.Size(), 16)+"-"+strconv.FormatInt(info.ModTime().UnixNano(), 16)+`"`)
 		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	}
@@ -362,6 +367,38 @@ func deleteHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"deleted": path})
+	}
+}
+
+func eventsHandler(service *workspacefs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "internal_error", "Streaming unsupported")
+			return
+		}
+
+		ch := service.Events.Subscribe()
+		defer service.Events.Unsubscribe(ch)
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case event := <-ch:
+				data, err := json.Marshal(event)
+				if err == nil {
+					w.Write([]byte("data: "))
+					w.Write(data)
+					w.Write([]byte("\n\n"))
+					flusher.Flush()
+				}
+			}
+		}
 	}
 }
 

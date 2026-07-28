@@ -12,6 +12,7 @@ require (
 
 require (
 	github.com/creack/pty v1.1.21 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/u-root/u-root v0.11.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 )

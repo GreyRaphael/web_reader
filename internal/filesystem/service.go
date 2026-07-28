@@ -54,10 +54,15 @@ type Service struct {
 	mu          sync.RWMutex
 	root        string
 	maxTextSize int64
+	Events      *EventBus
+	stopWatcher func()
 }
 
 func New(root string, maxTextSize int64) (*Service, error) {
-	svc := &Service{maxTextSize: maxTextSize}
+	svc := &Service{
+		maxTextSize: maxTextSize,
+		Events:      NewEventBus(),
+	}
 	if _, err := svc.SetRoot(root); err != nil {
 		return nil, err
 	}
@@ -112,6 +117,13 @@ func (s *Service) SetRoot(newRoot string) (string, error) {
 	clean := filepath.Clean(realRoot)
 	s.mu.Lock()
 	s.root = clean
+	if s.stopWatcher != nil {
+		s.stopWatcher()
+		s.stopWatcher = nil
+	}
+	if stop, err := startWatcher(clean, s.Events); err == nil {
+		s.stopWatcher = stop
+	}
 	s.mu.Unlock()
 	return clean, nil
 }

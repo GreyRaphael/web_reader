@@ -164,22 +164,54 @@ function handleUploadClick(): void {
   fileInput.value?.click()
 }
 
-async function handleUpload(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const dir = workingDir.value
-  const fullPath = dir ? `${dir}/${file.name}` : file.name
-  try {
-    const buffer = await file.arrayBuffer()
-    await uploadFile(fullPath, buffer)
-    toolMessage.value = ''
-    refreshDir()
-  } catch (error) {
-    toolMessage.value = error instanceof Error ? error.message : '上传失败'
-  } finally {
-    input.value = ''
+const uploadQueue = ref<File[]>([])
+const uploadingCount = ref(0)
+const uploadTotal = ref(0)
+const MAX_CONCURRENT_UPLOADS = 3
+
+async function processUploadQueue(dir: string): Promise<void> {
+  if (uploadQueue.value.length === 0) {
+    if (uploadingCount.value === 0) {
+      toolMessage.value = uploadTotal.value > 0 ? `成功上传 ${uploadTotal.value} 个文件` : ''
+      uploadTotal.value = 0
+      refreshDir()
+      setTimeout(() => {
+        if (toolMessage.value.startsWith('成功上传')) toolMessage.value = ''
+      }, 3000)
+    }
+    return
   }
+
+  while (uploadingCount.value < MAX_CONCURRENT_UPLOADS && uploadQueue.value.length > 0) {
+    const file = uploadQueue.value.shift()
+    if (!file) continue
+
+    uploadingCount.value++
+    const fullPath = dir ? `${dir}/${file.name}` : file.name
+    toolMessage.value = `正在上传 (${uploadTotal.value - uploadQueue.value.length}/${uploadTotal.value})...`
+
+    file.arrayBuffer().then(buffer => uploadFile(fullPath, buffer))
+      .catch((error) => {
+        console.error(`上传失败 ${file.name}:`, error)
+      })
+      .finally(() => {
+        uploadingCount.value--
+        processUploadQueue(dir)
+      })
+  }
+}
+
+function handleUpload(event: Event): void {
+  const input = event.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+  const files = Array.from(input.files)
+
+  uploadQueue.value.push(...files)
+  uploadTotal.value += files.length
+
+  const dir = workingDir.value
+  processUploadQueue(dir)
+  input.value = ''
 }
 
 async function handleDelete(item: FsItem): Promise<void> {
@@ -388,8 +420,42 @@ watch(
   },
 )
 
-onMounted(() => loadDir(''))
-onBeforeUnmount(() => controller?.abort())
+let eventSource: EventSource | null = null
+let refreshTimer: number | null = null
+
+function throttledRefresh() {
+  if (refreshTimer) return
+  refreshTimer = window.setTimeout(() => {
+    refreshTimer = null
+    refreshDir()
+  }, 500)
+}
+
+function setupSSE() {
+  if (eventSource) return
+  eventSource = new EventSource('/api/fs/events')
+  eventSource.onmessage = () => {
+    throttledRefresh()
+  }
+  eventSource.onerror = () => {
+    eventSource?.close()
+    eventSource = null
+    setTimeout(setupSSE, 5000)
+  }
+}
+
+onMounted(() => {
+  loadDir('')
+  setupSSE()
+})
+
+onBeforeUnmount(() => {
+  controller?.abort()
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+})
 </script>
 
 <template>
@@ -399,7 +465,7 @@ onBeforeUnmount(() => controller?.abort())
         <h2>WORKSPACE</h2>
       </div>
       <div class="tree-toolbar">
-        <input ref="fileInput" type="file" class="tree-file-input" @change="handleUpload" />
+        <input ref="fileInput" type="file" multiple class="tree-file-input" @change="handleUpload" />
         <button
           class="icon-button compact"
           type="button"
