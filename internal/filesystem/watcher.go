@@ -73,7 +73,8 @@ func startWatcher(root string, events *EventBus) (func(), error) {
 					return
 				}
 				eventType := "updated"
-				if event.Has(fsnotify.Create) {
+				switch {
+				case event.Has(fsnotify.Create):
 					eventType = "created"
 					info, err := os.Stat(event.Name)
 					if err == nil && info.IsDir() {
@@ -81,9 +82,9 @@ func startWatcher(root string, events *EventBus) (func(), error) {
 							_ = addRecursive(event.Name)
 						}
 					}
-				} else if event.Has(fsnotify.Remove) {
+				case event.Has(fsnotify.Remove):
 					eventType = "deleted"
-				} else if event.Has(fsnotify.Rename) {
+				case event.Has(fsnotify.Rename):
 					eventType = "renamed"
 				}
 

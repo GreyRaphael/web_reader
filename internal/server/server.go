@@ -392,9 +392,9 @@ func eventsHandler(service *workspacefs.Service) http.HandlerFunc {
 			case event := <-ch:
 				data, err := json.Marshal(event)
 				if err == nil {
-					w.Write([]byte("data: "))
-					w.Write(data)
-					w.Write([]byte("\n\n"))
+					_, _ = w.Write([]byte("data: "))
+					_, _ = w.Write(data)
+					_, _ = w.Write([]byte("\n\n"))
 					flusher.Flush()
 				}
 			}
