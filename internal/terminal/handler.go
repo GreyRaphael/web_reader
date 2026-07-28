@@ -3,12 +3,15 @@ package terminal
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 
+	goptyp "github.com/aymanbagabas/go-pty"
 	"golang.org/x/net/websocket"
 )
 
@@ -20,33 +23,38 @@ type resizeMessage struct {
 }
 
 // Handler returns an http.Handler that upgrades to a WebSocket and bridges
-// it to a PTY running $SHELL in the given workspace directory.
+// it to a PTY running a shell in the given workspace directory.
 func Handler(workspace string) http.Handler {
 	return websocket.Handler(func(ws *websocket.Conn) {
 		defer ws.Close()
 
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/bash"
-		}
-		if _, err := exec.LookPath(shell); err != nil {
-			shell = "/bin/sh"
-		}
+		ctx, cancel := context.WithCancel(ws.Request().Context())
+		defer cancel()
 
-		cmd := exec.Command(shell)
-		cmd.Dir = workspace
-		cmd.Env = append(os.Environ(), "TERM=xterm-256color")
-
-		pty, err := StartPTY(cmd)
+		shell, err := defaultShell()
 		if err != nil {
-			slog.Error("terminal: start pty", "error", err)
+			slog.Error("terminal: resolve shell", "error", err)
 			_, _ = ws.Write([]byte("Terminal unavailable: " + err.Error() + "\r\n"))
 			return
 		}
-		defer pty.Master.Close()
 
-		ctx, cancel := context.WithCancel(ws.Request().Context())
-		defer cancel()
+		p, err := goptyp.New()
+		if err != nil {
+			slog.Error("terminal: open pty", "error", err)
+			_, _ = ws.Write([]byte("Terminal unavailable: " + err.Error() + "\r\n"))
+			return
+		}
+		defer p.Close()
+
+		c := p.CommandContext(ctx, shell)
+		c.Dir = workspace
+		c.Env = append(os.Environ(), "TERM=xterm-256color")
+
+		if err := c.Start(); err != nil {
+			slog.Error("terminal: start command", "error", err)
+			_, _ = ws.Write([]byte("Terminal unavailable: " + err.Error() + "\r\n"))
+			return
+		}
 
 		// pty -> websocket
 		go func() {
@@ -57,7 +65,7 @@ func Handler(workspace string) http.Handler {
 					return
 				default:
 				}
-				n, err := pty.Master.Read(buf)
+				n, err := p.Read(buf)
 				if n > 0 {
 					if _, werr := ws.Write(buf[:n]); werr != nil {
 						return
@@ -77,7 +85,7 @@ func Handler(workspace string) http.Handler {
 		for {
 			n, err := ws.Read(readBuf)
 			if err != nil {
-				_ = pty.Kill()
+				cancel()
 				break
 			}
 			if n == 0 {
@@ -88,19 +96,36 @@ func Handler(workspace string) http.Handler {
 			if isControlMessage(readBuf[:n]) {
 				var msg resizeMessage
 				if json.Unmarshal(readBuf[:n], &msg) == nil && msg.Type == "resize" {
-					_ = pty.SetSize(msg.Cols, msg.Rows)
+					_ = p.Resize(int(msg.Cols), int(msg.Rows))
 					continue
 				}
 			}
 
 			// Otherwise treat as raw terminal input.
-			if _, err := pty.Master.Write(readBuf[:n]); err != nil {
+			if _, err := p.Write(readBuf[:n]); err != nil {
 				break
 			}
 		}
 
-		_ = cmd.Wait()
+		_ = c.Wait()
 	})
+}
+
+// defaultShell returns a usable shell program path for the current platform.
+func defaultShell() (string, error) {
+	candidates := []string{os.Getenv("SHELL"), "/bin/bash", "/bin/sh"}
+	if runtime.GOOS == "windows" {
+		candidates = []string{os.Getenv("COMSPEC"), "powershell.exe", "cmd.exe"}
+	}
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if path, err := exec.LookPath(c); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no usable shell found")
 }
 
 // isControlMessage returns true if the data looks like a JSON object starting
