@@ -338,7 +338,7 @@ func (s *Service) createEntry(relative string, isDir bool) (Item, error) {
 			return Item{}, err
 		}
 	} else {
-		f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		f, err := openFileNoFollow(fullPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err != nil {
 			return Item{}, err
 		}
@@ -476,7 +476,7 @@ func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
 	} else if !os.IsNotExist(lErr) {
 		return Item{}, lErr
 	}
-	f, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	f, err := openFileNoFollow(fullPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return Item{}, err
 	}

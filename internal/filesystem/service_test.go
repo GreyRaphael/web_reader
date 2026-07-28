@@ -61,6 +61,44 @@ func TestResolveRejectsSymlinkOutsideWorkspace(t *testing.T) {
 	}
 }
 
+// TestSaveUploadRejectsSymlinkTarget verifies that SaveUpload refuses to
+// follow a symlink that points outside the workspace, even when the symlink
+// is created after the parent-directory validation succeeds.
+func TestSaveUploadRejectsSymlinkTarget(t *testing.T) {
+	service, root := newTestService(t)
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(secret, []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(root, "book", "escape-upload.txt")
+	if err := os.Symlink(secret, linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	_, err := service.SaveUpload("book/escape-upload.txt", bytes.NewReader([]byte("overwrite")))
+	if !errors.Is(err, ErrOutsideRoot) {
+		t.Fatalf("SaveUpload over symlink = %v, want ErrOutsideRoot", err)
+	}
+}
+
+// TestCreateFileRejectsSymlinkTarget verifies that CreateFile (O_EXCL) does
+// not resolve a pre-existing symlink placed inside the workspace.
+func TestCreateFileRejectsSymlinkTarget(t *testing.T) {
+	service, root := newTestService(t)
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(secret, []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(root, "book", "escape-create.txt")
+	if err := os.Symlink(secret, linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	_, err := service.CreateFile("book/escape-create.txt")
+	if !errors.Is(err, ErrOutsideRoot) && !errors.Is(err, ErrAlreadyExists) {
+		t.Fatalf("CreateFile over symlink = %v, want ErrOutsideRoot or ErrAlreadyExists", err)
+	}
+}
 func TestListSortsDirectoriesThenNaturalFileNames(t *testing.T) {
 	service, _ := newTestService(t)
 	items, err := service.List("book")
