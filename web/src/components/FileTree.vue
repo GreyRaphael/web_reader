@@ -190,7 +190,9 @@ async function processUploadQueue(dir: string): Promise<void> {
     const fullPath = dir ? `${dir}/${file.name}` : file.name
     toolMessage.value = `正在上传 (${uploadTotal.value - uploadQueue.value.length}/${uploadTotal.value})...`
 
-    file.arrayBuffer().then(buffer => uploadFile(fullPath, buffer))
+    file
+      .arrayBuffer()
+      .then((buffer) => uploadFile(fullPath, buffer))
       .catch((error) => {
         console.error(`上传失败 ${file.name}:`, error)
       })
@@ -432,6 +434,7 @@ function throttledRefresh() {
 }
 
 function setupSSE() {
+  if (typeof EventSource === 'undefined') return
   if (eventSource) return
   eventSource = new EventSource('/api/fs/events')
   eventSource.onmessage = () => {
@@ -465,7 +468,13 @@ onBeforeUnmount(() => {
         <h2>WORKSPACE</h2>
       </div>
       <div class="tree-toolbar">
-        <input ref="fileInput" type="file" multiple class="tree-file-input" @change="handleUpload" />
+        <input
+          ref="fileInput"
+          type="file"
+          multiple
+          class="tree-file-input"
+          @change="handleUpload"
+        />
         <button
           class="icon-button compact"
           type="button"

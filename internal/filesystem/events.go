@@ -32,7 +32,6 @@ func (b *EventBus) Unsubscribe(ch chan Event) {
 	b.mu.Lock()
 	delete(b.subscribers, ch)
 	b.mu.Unlock()
-	close(ch)
 }
 
 func (b *EventBus) Publish(event Event) {

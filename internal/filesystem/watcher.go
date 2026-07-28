@@ -9,6 +9,28 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+func shouldIgnoreDir(name string) bool {
+	switch name {
+	case ".git", "node_modules", "vendor", ".venv", "dist", "build", ".idea", ".vscode", ".next", ".cache", "tmp", "temp":
+		return true
+	default:
+		return false
+	}
+}
+
+func isIgnoredPath(logicalPath string) bool {
+	if logicalPath == "" {
+		return false
+	}
+	parts := strings.Split(logicalPath, "/")
+	for _, p := range parts {
+		if shouldIgnoreDir(p) {
+			return true
+		}
+	}
+	return false
+}
+
 func startWatcher(root string, events *EventBus) (func(), error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -22,7 +44,7 @@ func startWatcher(root string, events *EventBus) (func(), error) {
 				return nil
 			}
 			if info.IsDir() {
-				if filepath.Base(path) == ".git" {
+				if shouldIgnoreDir(filepath.Base(path)) {
 					return filepath.SkipDir
 				}
 				err = watcher.Add(path)
@@ -55,7 +77,9 @@ func startWatcher(root string, events *EventBus) (func(), error) {
 					eventType = "created"
 					info, err := os.Stat(event.Name)
 					if err == nil && info.IsDir() {
-						_ = addRecursive(event.Name)
+						if !shouldIgnoreDir(filepath.Base(event.Name)) {
+							_ = addRecursive(event.Name)
+						}
 					}
 				} else if event.Has(fsnotify.Remove) {
 					eventType = "deleted"
@@ -69,7 +93,7 @@ func startWatcher(root string, events *EventBus) (func(), error) {
 					if logicalPath == "." {
 						logicalPath = ""
 					}
-					if !strings.HasPrefix(logicalPath, ".git") {
+					if !isIgnoredPath(logicalPath) {
 						events.Publish(Event{Type: eventType, Path: logicalPath})
 					}
 				}
