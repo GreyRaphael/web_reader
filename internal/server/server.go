@@ -15,22 +15,26 @@ import (
 	"web_reader/internal/auth"
 	"web_reader/internal/config"
 	workspacefs "web_reader/internal/filesystem"
+	"web_reader/internal/terminal"
 )
 
 type Server struct {
-	config Config
-	http   *http.Server
+	config          Config
+	http            *http.Server
+	terminalEnabled *bool
 }
 
 type Config struct {
-	AppConfig config.Config
-	Auth      *auth.Handler
-	Sessions  *auth.Store
-	Files     *workspacefs.Service
-	Assets    fs.FS
+	AppConfig       config.Config
+	Auth            *auth.Handler
+	Sessions        *auth.Store
+	Files           *workspacefs.Service
+	Assets          fs.FS
+	TerminalEnabled bool
 }
 
 func New(cfg Config) *Server {
+	terminalEnabled := cfg.TerminalEnabled
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -42,6 +46,9 @@ func New(cfg Config) *Server {
 	mux.Handle("POST /api/workspace", cfg.Sessions.Require(http.HandlerFunc(setWorkspaceHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/list", cfg.Sessions.Require(http.HandlerFunc(listHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/browse", cfg.Sessions.Require(http.HandlerFunc(browseHandler())))
+	mux.Handle("GET /api/terminal", cfg.Sessions.Require(terminalHandler(cfg.Files, &terminalEnabled)))
+	mux.Handle("GET /api/settings", cfg.Sessions.Require(http.HandlerFunc(getSettingsHandler(&terminalEnabled))))
+	mux.Handle("POST /api/settings", cfg.Sessions.Require(http.HandlerFunc(setSettingsHandler(&terminalEnabled))))
 	mux.Handle("GET /api/fs/meta", cfg.Sessions.Require(http.HandlerFunc(metaHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/text", cfg.Sessions.Require(http.HandlerFunc(textHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/raw", cfg.Sessions.Require(http.HandlerFunc(rawHandler(cfg.Files))))
@@ -62,7 +69,8 @@ func New(cfg Config) *Server {
 		handler = securityHeadersWithHSTS(recoverPanic(requestLogger(mux)))
 	}
 	return &Server{
-		config: cfg,
+		config:          cfg,
+		terminalEnabled: &terminalEnabled,
 		http: &http.Server{
 			Addr:              cfg.AppConfig.Addr,
 			Handler:           handler,
@@ -119,6 +127,47 @@ func browseHandler() http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func terminalHandler(service *workspacefs.Service, enabled *bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !*enabled {
+			writeError(w, http.StatusNotFound, "terminal_disabled", "Terminal is disabled in settings")
+			return
+		}
+		terminal.Handler(service.GetRoot()).ServeHTTP(w, r)
+	})
+}
+
+func getSettingsHandler(enabled *bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]bool{
+			"enableTerminal": *enabled,
+		})
+	}
+}
+
+func setSettingsHandler(enabled *bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			EnableTerminal *bool `json:"enableTerminal"`
+		}
+		if err := decodeJSONBody(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON payload")
+			return
+		}
+		if req.EnableTerminal != nil {
+			*enabled = *req.EnableTerminal
+			if err := config.SaveTerminalSetting(*req.EnableTerminal); err != nil {
+				slog.Warn("save terminal setting failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "save_failed", "Failed to save setting")
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{
+			"enableTerminal": *enabled,
+		})
 	}
 }
 

@@ -11,6 +11,7 @@ vi.mock('@/api/client', () => ({
   getFileMeta: vi.fn(),
   getTextFile: getTextFileMock,
   logout: logoutMock,
+  getSettings: () => Promise.resolve({ enableTerminal: true }),
 }))
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

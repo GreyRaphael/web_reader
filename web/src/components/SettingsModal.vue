@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getWorkspace, setWorkspace } from '@/api/client'
+import { getSettings, getWorkspace, setWorkspace, setSettings } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
 import PathBrowser from './PathBrowser.vue'
 
@@ -9,6 +9,7 @@ const props = defineProps<{ username?: string }>()
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'updated', path: string): void
+  (e: 'settingsChanged', enableTerminal: boolean): void
 }>()
 
 const workspace = ref('')
@@ -19,11 +20,43 @@ const successMsg = ref('')
 const dialogEl = ref<HTMLDialogElement | null>(null)
 let previouslyFocused: HTMLElement | null = null
 
+const enableTerminal = ref(true)
+const terminalSaving = ref(false)
+
 const showBrowser = ref(false)
 
 function handleBrowserSelect(path: string) {
   workspace.value = path
   showBrowser.value = false
+}
+
+async function handleTerminalToggle() {
+  terminalSaving.value = true
+  errorMsg.value = ''
+  try {
+    const res = await setSettings(enableTerminal.value)
+    enableTerminal.value = res.enableTerminal
+    emit('settingsChanged', res.enableTerminal)
+  } catch (err) {
+    errorMsg.value = err instanceof Error ? err.message : '保存终端设置失败'
+    enableTerminal.value = !enableTerminal.value
+  } finally {
+    terminalSaving.value = false
+  }
+}
+
+function toggleTerminal() {
+  enableTerminal.value = !enableTerminal.value
+  handleTerminalToggle()
+}
+
+async function fetchSettings() {
+  try {
+    const res = await getSettings()
+    enableTerminal.value = res.enableTerminal
+  } catch {
+    // default on if fetch fails
+  }
 }
 
 async function fetchCurrentWorkspace() {
@@ -73,6 +106,7 @@ function closeDialog(): void {
 onMounted(async () => {
   previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
   await fetchCurrentWorkspace()
+  await fetchSettings()
   await nextTick()
   const dialog = dialogEl.value
   if (dialog && !dialog.open) {
@@ -165,6 +199,24 @@ onBeforeUnmount(() => {
           @select="handleBrowserSelect"
           @cancel="showBrowser = false"
         />
+
+        <div class="settings-toggle-row">
+          <div>
+            <label class="form-label">浏览器终端 (Terminal)</label>
+            <p class="form-help">开启后工具栏显示终端按钮，可在工作区路径下运行 shell。</p>
+          </div>
+          <button
+            class="toggle-switch"
+            type="button"
+            role="switch"
+            :aria-checked="enableTerminal"
+            :disabled="terminalSaving"
+            :class="{ on: enableTerminal }"
+            @click="toggleTerminal"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
 
         <div v-if="errorMsg" class="alert-box error" role="alert">
           {{ errorMsg }}
@@ -354,6 +406,52 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  border: none;
+  border-radius: 12px;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.toggle-switch.on {
+  background: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 150ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.on .toggle-knob {
+  transform: translateX(20px);
+}
+
+.toggle-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .alert-box.error {

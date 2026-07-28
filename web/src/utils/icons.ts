@@ -53,6 +53,7 @@ export const ICON_PATHS: Record<string, string> = {
   check: '<polyline points="20 6 9 17 4 12"/>',
   'log-out':
     '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
 }
 
 export function iconSvg(name: string, size = 16): string {

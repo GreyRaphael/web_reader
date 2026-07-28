@@ -269,3 +269,62 @@ func TestBrowseHandlerRejectsSensitivePath(t *testing.T) {
 		t.Fatalf("browse /etc status = %d, want 403", rec.Code)
 	}
 }
+
+func newTestServerWithTerminal(t *testing.T) *Server {
+	t.Helper()
+	root := t.TempDir()
+	files, err := workspacefs.New(root, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte("reader-test"), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions := auth.NewStore(time.Hour, false)
+	authHandler := auth.NewHandler("admin", hash, sessions, auth.NewLoginLimiter(20, time.Minute))
+	assets := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`<!doctype html><div id="app"></div>`)},
+	}
+	return New(Config{
+		AppConfig:       config.Config{Addr: "127.0.0.1:0"},
+		Auth:            authHandler,
+		Sessions:        sessions,
+		Files:           files,
+		Assets:          fs.FS(assets),
+		TerminalEnabled: true,
+	})
+}
+
+func TestTerminalDisabledReturns404(t *testing.T) {
+	handler := newTestServer(t).Handler()
+	cookie := loginCookie(t, handler)
+	rec := httptest.NewRecorder()
+	req := authenticatedRequest(http.MethodGet, "/api/terminal", cookie)
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("terminal route should be 404 when disabled, got %d", rec.Code)
+	}
+}
+
+func TestTerminalRequiresAuth(t *testing.T) {
+	handler := newTestServerWithTerminal(t).Handler()
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/terminal", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated terminal status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSettingsAPI(t *testing.T) {
+	handler := newTestServerWithTerminal(t).Handler()
+	cookie := loginCookie(t, handler)
+
+	// GET returns current setting (true by default in test config)
+	getReq := authenticatedRequest(http.MethodGet, "/api/settings", cookie)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK || !strings.Contains(getRec.Body.String(), `"enableTerminal":true`) {
+		t.Fatalf("GET /api/settings status = %d, body = %s", getRec.Code, getRec.Body.String())
+	}
+}

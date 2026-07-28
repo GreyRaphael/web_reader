@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
 	"runtime/debug"
@@ -34,6 +37,23 @@ func (r *responseRecorder) Write(body []byte) (int, error) {
 }
 
 func (r *responseRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
+// Hijack delegates to the underlying ResponseWriter so that WebSocket
+// upgrade requests can take over the TCP connection.
+func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+	}
+	return hj.Hijack()
+}
+
+// Flush delegates to the underlying ResponseWriter if it supports flushing.
+func (r *responseRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
 
 type bodyTrackingWriter struct {
 	http.ResponseWriter

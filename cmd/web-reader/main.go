@@ -56,11 +56,12 @@ func runServer(args []string) error {
 	sessions := auth.NewStore(cfg.SessionTTL, cfg.SecureCookie)
 	authHandler := auth.NewHandler(cfg.Username, cfg.PasswordHash, sessions, auth.NewLoginLimiter(10, time.Minute))
 	app := server.New(server.Config{
-		AppConfig: cfg,
-		Auth:      authHandler,
-		Sessions:  sessions,
-		Files:     files,
-		Assets:    assets,
+		AppConfig:       cfg,
+		Auth:            authHandler,
+		Sessions:        sessions,
+		Files:           files,
+		Assets:          assets,
+		TerminalEnabled: config.LoadSavedTerminalEnabled(),
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

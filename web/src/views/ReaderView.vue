@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getFileMeta, getTextFile, logout } from '@/api/client'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
+import { getFileMeta, getSettings, getTextFile, logout } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
 import {
   storedBoolean,
@@ -15,6 +23,8 @@ import PreviewPane from '@/components/PreviewPane.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import ThemeControl from '@/components/ThemeControl.vue'
 import { useTheme } from '@/composables/useTheme'
+
+const TerminalPanel = defineAsyncComponent(() => import('@/components/TerminalPanel.vue'))
 import type { MarkdownHeading } from '@/markdown/render'
 import { decodeFragment } from '@/utils/path'
 import { getPreviewMode, isTextPreview } from '@/utils/preview'
@@ -64,6 +74,9 @@ function changeFontSize(delta: number) {
 const signingOut = ref(false)
 const userMenuOpen = ref(false)
 const showSettingsModal = ref(false)
+const terminalOpen = ref(false)
+const terminalEnabled = ref(true)
+const terminalDialogRef = ref<HTMLDialogElement | null>(null)
 const fileTreeKey = ref(0)
 
 function openSettings() {
@@ -74,6 +87,7 @@ function openSettings() {
 function handleWorkspaceUpdated() {
   selectedItem.value = null
   textContent.value = null
+  terminalOpen.value = false
   fileTreeKey.value++
 }
 
@@ -106,6 +120,7 @@ function toggleLeft(event?: MouseEvent): void {
     drawerTrigger = eventTrigger(event) ?? leftToggle.value
     mobileLeftOpen.value = !mobileLeftOpen.value
     mobileRightOpen.value = false
+    terminalOpen.value = false
   } else {
     leftVisible.value = !leftVisible.value
   }
@@ -116,6 +131,7 @@ function toggleRight(event?: MouseEvent): void {
     drawerTrigger = eventTrigger(event) ?? rightToggle.value
     mobileRightOpen.value = !mobileRightOpen.value
     mobileLeftOpen.value = false
+    terminalOpen.value = false
   } else {
     rightVisible.value = !rightVisible.value
   }
@@ -317,6 +333,11 @@ function handleKeydown(event: KeyboardEvent): void {
     closeDrawers()
     return
   }
+  if (event.key === 'Escape' && terminalOpen.value && mobileViewport.value) {
+    event.preventDefault()
+    terminalOpen.value = false
+    return
+  }
   if (event.key !== 'Tab') return
   const drawer = mobileLeftOpen.value
     ? leftDrawer.value
@@ -366,6 +387,12 @@ watch([mobileLeftOpen, mobileRightOpen], async ([leftOpen, rightOpen]) => {
     ?.focus()
 })
 
+watch([terminalOpen, mobileViewport], async ([open, mobile]) => {
+  if (!open || !mobile) return
+  await nextTick()
+  const dialog = terminalDialogRef.value
+  if (dialog && !dialog.open) dialog.showModal()
+})
 function handleGlobalClick(e: MouseEvent) {
   if (userMenuOpen.value && !(e.target as Element).closest('.user-menu-container')) {
     userMenuOpen.value = false
@@ -378,6 +405,9 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('popstate', handlePopState)
   window.addEventListener('resize', handleViewportChange)
+  void getSettings()
+    .then((res) => (terminalEnabled.value = res.enableTerminal))
+    .catch(() => {})
   const url = new URL(window.location.href)
   const path = url.searchParams.get('path')
   if (path) void openItem(path, decodeFragment(url.hash.slice(1)), 'none')
@@ -450,6 +480,17 @@ onBeforeUnmount(() => {
             A+
           </button>
         </div>
+        <button
+          v-if="terminalEnabled"
+          class="icon-button compact terminal-toggle"
+          type="button"
+          :class="{ active: terminalOpen }"
+          :aria-expanded="terminalOpen"
+          aria-label="终端"
+          title="终端"
+          v-html="iconSvg('terminal', 18)"
+          @click="terminalOpen = !terminalOpen"
+        ></button>
         <div class="user-menu-container">
           <button
             class="user-avatar"
@@ -574,6 +615,26 @@ onBeforeUnmount(() => {
       :username="props.username"
       @close="showSettingsModal = false"
       @updated="handleWorkspaceUpdated"
+      @settings-changed="terminalEnabled = $event"
     />
+
+    <!-- Terminal: mobile full-screen dialog, desktop bottom panel -->
+    <Teleport to="body">
+      <dialog
+        ref="terminalDialogRef"
+        v-if="terminalOpen && mobileViewport"
+        class="terminal-dialog"
+        @cancel.prevent="terminalOpen = false"
+      >
+        <TerminalPanel :theme="resolved" @close="terminalOpen = false" />
+      </dialog>
+    </Teleport>
+    <div
+      v-if="terminalOpen && !mobileViewport"
+      class="terminal-dock"
+      :inert="mobileLeftOpen || mobileRightOpen || undefined"
+    >
+      <TerminalPanel :theme="resolved" @close="terminalOpen = false" />
+    </div>
   </div>
 </template>

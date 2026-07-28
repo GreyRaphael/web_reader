@@ -41,3 +41,7 @@ export interface TextResponse {
   size: number
   modifiedAt: string
 }
+
+export interface SettingsResponse {
+  enableTerminal: boolean
+}

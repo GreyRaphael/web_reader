@@ -173,7 +173,8 @@ func isSecretFile(p string) bool {
 }
 
 type SavedSettings struct {
-	Workspace string `json:"workspace"`
+	Workspace      string `json:"workspace"`
+	EnableTerminal *bool  `json:"enableTerminal,omitempty"`
 }
 
 func getSettingsFilePath() (string, error) {
@@ -227,6 +228,50 @@ func LoadSavedWorkspace() string {
 		return ""
 	}
 	return strings.TrimSpace(settings.Workspace)
+}
+
+// LoadSavedTerminalEnabled returns the persisted terminal preference.
+// Returns true (default on) when the setting is unset or missing.
+func LoadSavedTerminalEnabled() bool {
+	file, err := getSettingsFilePath()
+	if err != nil {
+		return true
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return true
+	}
+	var settings SavedSettings
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return true
+	}
+	if settings.EnableTerminal == nil {
+		return true
+	}
+	return *settings.EnableTerminal
+}
+
+// SaveTerminalSetting persists the terminal-enabled preference alongside
+// any existing settings.
+func SaveTerminalSetting(enabled bool) error {
+	file, err := getSettingsFilePath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(file)
+	var settings map[string]any
+	if err == nil {
+		_ = json.Unmarshal(data, &settings)
+	}
+	if settings == nil {
+		settings = make(map[string]any)
+	}
+	settings["enableTerminal"] = enabled
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(file, out, 0o600)
 }
 
 func envOr(key, fallback string) string {
