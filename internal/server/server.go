@@ -41,6 +41,7 @@ func New(cfg Config) *Server {
 	mux.Handle("GET /api/workspace", cfg.Sessions.Require(http.HandlerFunc(getWorkspaceHandler(cfg.Files))))
 	mux.Handle("POST /api/workspace", cfg.Sessions.Require(http.HandlerFunc(setWorkspaceHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/list", cfg.Sessions.Require(http.HandlerFunc(listHandler(cfg.Files))))
+	mux.Handle("GET /api/fs/browse", cfg.Sessions.Require(http.HandlerFunc(browseHandler())))
 	mux.Handle("GET /api/fs/meta", cfg.Sessions.Require(http.HandlerFunc(metaHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/text", cfg.Sessions.Require(http.HandlerFunc(textHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/raw", cfg.Sessions.Require(http.HandlerFunc(rawHandler(cfg.Files))))
@@ -107,6 +108,17 @@ func textHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, file)
+	}
+}
+
+func browseHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := workspacefs.BrowseDirectories(r.URL.Query().Get("path"))
+		if err != nil {
+			writeFileError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	}
 }
 

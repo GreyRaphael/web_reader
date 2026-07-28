@@ -20,6 +20,16 @@ export interface FileListResponse {
   items: FsItem[]
 }
 
+export interface BrowseDirEntry {
+  name: string
+  path: string
+}
+
+export interface BrowseResponse {
+  path: string
+  dirs: BrowseDirEntry[]
+}
+
 export interface FileMetaResponse {
   item: FsItem
 }

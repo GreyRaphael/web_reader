@@ -217,3 +217,55 @@ func TestWorkspaceAPI(t *testing.T) {
 		t.Fatalf("POST /api/workspace status = %d, body = %s", postRec.Code, postRec.Body.String())
 	}
 }
+
+func TestBrowseHandlerAuthAndListing(t *testing.T) {
+	srv := newTestServer(t)
+	handler := srv.Handler()
+
+	// Unauthenticated request is rejected.
+	unauth := httptest.NewRecorder()
+	handler.ServeHTTP(unauth, httptest.NewRequest(http.MethodGet, "/api/fs/browse?path=/tmp", nil))
+	if unauth.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated browse status = %d", unauth.Code)
+	}
+
+	cookie := loginCookie(t, handler)
+
+	browseDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(browseDir, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(browseDir, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(browseDir, "file.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := authenticatedRequest(http.MethodGet, "/api/fs/browse?path="+browseDir, cookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("browse status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"sub1"`) || !strings.Contains(body, `"sub2"`) {
+		t.Fatalf("browse body missing subdirs: %s", body)
+	}
+	if strings.Contains(body, `"file.txt"`) {
+		t.Fatalf("browse body should not contain files: %s", body)
+	}
+}
+
+func TestBrowseHandlerRejectsSensitivePath(t *testing.T) {
+	srv := newTestServer(t)
+	handler := srv.Handler()
+	cookie := loginCookie(t, handler)
+
+	req := authenticatedRequest(http.MethodGet, "/api/fs/browse?path=/etc", cookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("browse /etc status = %d, want 403", rec.Code)
+	}
+}

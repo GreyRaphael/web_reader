@@ -1,4 +1,5 @@
 import type { FileListResponse, FileMetaResponse, SessionResponse, TextResponse } from './types'
+import type { BrowseResponse } from './types'
 
 export const AUTH_EXPIRED_EVENT = 'web-reader:auth-expired'
 
@@ -99,6 +100,10 @@ export async function setWorkspace(workspace: string): Promise<{ workspace: stri
 
 export async function listDirectory(path: string, signal?: AbortSignal): Promise<FileListResponse> {
   return request<FileListResponse>(apiUrl('/fs/list', { path }), { signal })
+}
+
+export async function browseDirectories(path: string): Promise<BrowseResponse> {
+  return request<BrowseResponse>(apiUrl('/fs/browse', { path }))
 }
 
 export async function getFileMeta(path: string, signal?: AbortSignal): Promise<FileMetaResponse> {

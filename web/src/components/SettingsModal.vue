@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getWorkspace, setWorkspace } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
+import PathBrowser from './PathBrowser.vue'
 
 const props = defineProps<{ username?: string }>()
 
@@ -17,6 +18,13 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const dialogEl = ref<HTMLDialogElement | null>(null)
 let previouslyFocused: HTMLElement | null = null
+
+const showBrowser = ref(false)
+
+function handleBrowserSelect(path: string) {
+  workspace.value = path
+  showBrowser.value = false
+}
 
 async function fetchCurrentWorkspace() {
   loading.value = true
@@ -141,7 +149,22 @@ onBeforeUnmount(() => {
           >
             默认 ~/workspace
           </button>
+          <button
+            class="button secondary-button"
+            type="button"
+            :disabled="loading || saving"
+            @click="showBrowser = !showBrowser"
+          >
+            {{ showBrowser ? '隐藏浏览' : '浏览…' }}
+          </button>
         </div>
+
+        <PathBrowser
+          v-if="showBrowser"
+          :initial-path="workspace || '~'"
+          @select="handleBrowserSelect"
+          @cancel="showBrowser = false"
+        />
 
         <div v-if="errorMsg" class="alert-box error" role="alert">
           {{ errorMsg }}
