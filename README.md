@@ -27,6 +27,73 @@ Web Reader 是一个轻量、现代化、全功能包含的 Web 文件树阅读�
 
 ---
 
+## 📊 Mermaid 流程图连线类型（flowchart.curve）
+
+Web Reader 内嵌的 Mermaid（11.x）支持用 `flowchart.curve` 控制流程图（flowchart）连接线的渲染观感。项目默认在 `web/src/components/MarkdownViewer.vue` 中设置 `flowchart: { htmlLabels: false, curve: 'rounded' }`，即默认 **圆角折线**；当图中连接线较多显得杂乱时，建议改用直线/折线类（`linear`、`step*`、`rounded`）以提升可读性。
+
+> 可通过以下三种方式调整：
+> 1. **全局默认（项目级）**：修改 `web/src/components/MarkdownViewer.vue` 中 `mermaid.initialize` 的 `flowchart.curve` 字段；
+> 2. **单张图（图内指令）**：在 Mermaid 代码块首行加入 `%%{init: {"flowchart": {"curve": "linear"}}}%%`；
+> 3. **单条边（逐边指定）**：在边上使用 `edgeId@{ curve: 类型 }` 语法单独指定该条边的曲线类型。
+
+### 一、支持的 `curve` 类型列表
+
+| 类型 | 说明 | 特点 / 适用场景 |
+| :--- | :--- | :--- |
+| **`basis`** *(默认值)* | B-样条平滑曲线 | 柔和的弧线，不一定穿过控制点，Mermaid 默认渲染方式 |
+| **`linear`** | 直线 / 折线 | 节点与拐点之间用直线直连（无平滑弧度） |
+| **`step`** | 阶梯折线（中间转折） | 水平与垂直交替，在两点正中间转折 |
+| **`stepBefore`** | 阶梯折线（先转折） | 水平/垂直阶梯连线，转折点靠近起点 |
+| **`stepAfter`** | 阶梯折线（后转折） | 水平/垂直阶梯连线，转折点靠近终点 |
+| **`rounded`** | 圆角折线 | 类似阶梯/正交折线，但在拐角处具有圆角平滑过渡 |
+| **`natural`** | 自然三次样条曲线 | 一条穿过所有点的平滑三次样条曲线 |
+| **`cardinal`** | Cardinal 样条曲线 | 穿过所有控制点的样条曲线 |
+| **`catmullRom`** | Catmull-Rom 样条曲线 | 类似于 Cardinal，张力更平滑自然 |
+| **`bumpX`** | 水平凸起曲线（S 形平滑） | 适合从左到右（LR / RL）排列的平滑贝塞尔曲线 |
+| **`bumpY`** | 垂直凸起曲线（S 形平滑） | 适合从上到下（TB / TD）排列的平滑贝塞尔曲线 |
+| **`monotoneX`** | 单调 X 三次曲线 | 保持 X 方向单调性，避免过冲波动（适合横向流） |
+| **`monotoneY`** | 单调 Y 三次曲线 | 保持 Y 方向单调性，避免过冲波动（适合纵向流） |
+
+### 二、示例（用 Edge ID 逐边指定 13 种 curve）
+
+```mermaid
+flowchart LR
+    %% 定义中心起点
+    Start((START))
+
+    %% 定义各类型连线（带 Edge ID）
+    Start e_basis@--> |1. basis 默认| T_basis[basis]
+    Start e_linear@--> |2. linear| T_linear[linear]
+    Start e_step@--> |3. step| T_step[step]
+    Start e_stepBefore@--> |4. stepBefore| T_stepBefore[stepBefore]
+    Start e_stepAfter@--> |5. stepAfter| T_stepAfter[stepAfter]
+    Start e_rounded@--> |6. rounded| T_rounded[rounded]
+    Start e_natural@--> |7. natural| T_natural[natural]
+    Start e_cardinal@--> |8. cardinal| T_cardinal[cardinal]
+    Start e_catmullRom@--> |9. catmullRom| T_catmullRom[catmullRom]
+    Start e_bumpX@--> |10. bumpX| T_bumpX[bumpX]
+    Start e_bumpY@--> |11. bumpY| T_bumpY[bumpY]
+    Start e_monotoneX@--> |12. monotoneX| T_monotoneX[monotoneX]
+    Start e_monotoneY@--> |13. monotoneY| T_monotoneY[monotoneY]
+
+    %% 分别指定各条边的 curve 属性
+    e_basis@{ curve: basis }
+    e_linear@{ curve: linear }
+    e_step@{ curve: step }
+    e_stepBefore@{ curve: stepBefore }
+    e_stepAfter@{ curve: stepAfter }
+    e_rounded@{ curve: rounded }
+    e_natural@{ curve: natural }
+    e_cardinal@{ curve: cardinal }
+    e_catmullRom@{ curve: catmullRom }
+    e_bumpX@{ curve: bumpX }
+    e_bumpY@{ curve: bumpY }
+    e_monotoneX@{ curve: monotoneX }
+    e_monotoneY@{ curve: monotoneY }
+```
+
+---
+
 ## 🛠️ 环境要求（仅源码编译）
 
 若直接使用 release 发布的预编译二进制文件，**无需安装任何依赖**。若需从源码构建：
