@@ -546,6 +546,7 @@ async function renderMermaidDiagrams(): Promise<void> {
       securityLevel: 'strict',
       theme: props.theme === 'night' ? 'dark' : 'default',
       htmlLabels: false,
+      flowchart: { htmlLabels: false },
       fontFamily: getMermaidFontFamily(),
       suppressErrorRendering: true,
     })
