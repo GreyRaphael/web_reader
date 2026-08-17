@@ -286,15 +286,7 @@ function handleRowClick(item: FsItem): void {
 }
 
 function handleChildClick(item: FsItem): void {
-  if (item.kind === 'directory') {
-    toggleExpand(item.path)
-  } else {
-    const lastSlash = item.path.lastIndexOf('/')
-    const dir = lastSlash >= 0 ? item.path.slice(0, lastSlash) : ''
-    workingDir.value = dir
-    suppressNavigate = true
-    emit('open', item)
-  }
+  handleRowClick(item)
 }
 
 function buildContextMenu(target: FsItem, event: MouseEvent): void {

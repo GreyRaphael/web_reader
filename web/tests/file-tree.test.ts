@@ -124,6 +124,40 @@ describe('FileTree', () => {
     expect(wrapper.findAll('.bc-crumb').length).toBe(1)
   })
 
+  it('clicking directory row from expanded subtree navigates into it as root', async () => {
+    const subDir: FsItem = {
+      path: 'book1/subfolder',
+      name: 'subfolder',
+      kind: 'directory',
+      previewKind: 'unsupported',
+      size: 0,
+      modifiedAt: '2026-07-20T00:00:00Z',
+      mime: '',
+    }
+    listDirectoryMock.mockImplementation(async (path: string) => ({
+      items: path === '' ? [directory] : path === 'book1' ? [subDir] : [markdown],
+    }))
+
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    // Expand book1 inline
+    await wrapper.find('.tree-chevron').trigger('click')
+    await flushPromises()
+
+    // Click on the child directory row
+    const childRow = wrapper.find('.tree-child-row')
+    expect(childRow.text()).toContain('subfolder')
+    await childRow.trigger('click')
+    await flushPromises()
+
+    // Should have navigated to book1/subfolder as root
+    expect(listDirectoryMock).toHaveBeenLastCalledWith('book1/subfolder', expect.any(AbortSignal))
+    const crumbs = wrapper.findAll('.bc-crumb')
+    expect(crumbs.length).toBe(3)
+    expect(crumbs[2]?.text()).toBe('subfolder')
+  })
+
   it('opens context menu and copies absolute path', async () => {
     const writeTextMock = vi.fn()
     Object.assign(navigator, {
