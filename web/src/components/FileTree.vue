@@ -171,17 +171,47 @@ function handleUploadClick(): void {
 const uploadQueue = ref<File[]>([])
 const uploadingCount = ref(0)
 const uploadTotal = ref(0)
+const uploadSuccessCount = ref(0)
+const uploadFailedFiles = ref<string[]>([])
 const MAX_CONCURRENT_UPLOADS = 3
+let toolMessageTimer: number | null = null
+
+function showToolMessage(msg: string, autoClearMs = 0): void {
+  if (toolMessageTimer) {
+    clearTimeout(toolMessageTimer)
+    toolMessageTimer = null
+  }
+  toolMessage.value = msg
+  if (autoClearMs > 0 && msg) {
+    toolMessageTimer = window.setTimeout(() => {
+      toolMessage.value = ''
+      toolMessageTimer = null
+    }, autoClearMs)
+  }
+}
 
 async function processUploadQueue(dir: string): Promise<void> {
   if (uploadQueue.value.length === 0) {
     if (uploadingCount.value === 0) {
-      toolMessage.value = uploadTotal.value > 0 ? `成功上传 ${uploadTotal.value} 个文件` : ''
+      const totalSuccess = uploadSuccessCount.value
+      const totalFailed = uploadFailedFiles.value.length
+      if (totalFailed === 0) {
+        showToolMessage(totalSuccess > 0 ? `成功上传 ${totalSuccess} 个文件` : '', 3000)
+      } else if (totalSuccess === 0) {
+        const failedSummary =
+          uploadFailedFiles.value.slice(0, 2).join(', ') + (totalFailed > 2 ? ' 等' : '')
+        showToolMessage(`上传失败 (${totalFailed} 个文件)：${failedSummary}`)
+      } else {
+        const failedSummary =
+          uploadFailedFiles.value.slice(0, 2).join(', ') + (totalFailed > 2 ? ' 等' : '')
+        showToolMessage(
+          `部分上传成功（${totalSuccess} 成功，${totalFailed} 失败：${failedSummary}）`,
+        )
+      }
       uploadTotal.value = 0
+      uploadSuccessCount.value = 0
+      uploadFailedFiles.value = []
       refreshDir()
-      setTimeout(() => {
-        if (toolMessage.value.startsWith('成功上传')) toolMessage.value = ''
-      }, 3000)
     }
     return
   }
@@ -192,13 +222,19 @@ async function processUploadQueue(dir: string): Promise<void> {
 
     uploadingCount.value++
     const fullPath = dir ? `${dir}/${file.name}` : file.name
-    toolMessage.value = `正在上传 (${uploadTotal.value - uploadQueue.value.length}/${uploadTotal.value})...`
+    showToolMessage(
+      `正在上传 (${uploadTotal.value - uploadQueue.value.length}/${uploadTotal.value})...`,
+    )
 
     file
       .arrayBuffer()
       .then((buffer) => uploadFile(fullPath, buffer))
+      .then(() => {
+        uploadSuccessCount.value++
+      })
       .catch((error) => {
         console.error(`上传失败 ${file.name}:`, error)
+        uploadFailedFiles.value.push(file.name)
       })
       .finally(() => {
         uploadingCount.value--
@@ -373,7 +409,8 @@ function onDragStart(item: FsItem, event: DragEvent): void {
 function onDragOver(item: FsItem, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  event.dataTransfer!.dropEffect = 'move'
+  const isExternal = event.dataTransfer?.types?.includes('Files')
+  event.dataTransfer!.dropEffect = isExternal ? 'copy' : 'move'
   if (item.kind === 'directory') {
     dragOverDir.value = item.path
   } else {
@@ -391,6 +428,18 @@ async function onDrop(targetDir: string, event: DragEvent): Promise<void> {
   event.preventDefault()
   event.stopPropagation()
   dragOverDir.value = null
+
+  // 1. Handle external file drag-and-drop upload
+  if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+    const files = Array.from(event.dataTransfer.files)
+    uploadQueue.value.push(...files)
+    uploadTotal.value += files.length
+    const dir = targetDir !== undefined && targetDir !== null ? targetDir : workingDir.value
+    processUploadQueue(dir)
+    return
+  }
+
+  // 2. Handle internal node move
   const sourcePath = event.dataTransfer?.getData('text/plain')
   if (!sourcePath || sourcePath === targetDir) return
   const sourceParentDir =
@@ -400,20 +449,23 @@ async function onDrop(targetDir: string, event: DragEvent): Promise<void> {
     await moveFile(sourcePath, targetDir)
     refreshDir()
   } catch (error) {
-    toolMessage.value = error instanceof Error ? error.message : '移动失败'
+    showToolMessage(error instanceof Error ? error.message : '移动失败')
   }
 }
 
 function onDragOverRoot(event: DragEvent): void {
   event.preventDefault()
-  event.dataTransfer!.dropEffect = 'move'
+  event.stopPropagation()
+  const isExternal = event.dataTransfer?.types?.includes('Files')
+  event.dataTransfer!.dropEffect = isExternal ? 'copy' : 'move'
   dragOverDir.value = currentDir.value
 }
 
 function onDragOverBreadcrumb(path: string, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  event.dataTransfer!.dropEffect = 'move'
+  const isExternal = event.dataTransfer?.types?.includes('Files')
+  event.dataTransfer!.dropEffect = isExternal ? 'copy' : 'move'
   dragOverDir.value = path
 }
 
@@ -434,6 +486,7 @@ watch(
 
 let eventSource: EventSource | null = null
 let refreshTimer: number | null = null
+let sseReconnectTimer: number | null = null
 
 function throttledRefresh() {
   if (refreshTimer) return
@@ -446,6 +499,10 @@ function throttledRefresh() {
 function setupSSE() {
   if (typeof EventSource === 'undefined') return
   if (eventSource) return
+  if (sseReconnectTimer) {
+    clearTimeout(sseReconnectTimer)
+    sseReconnectTimer = null
+  }
   eventSource = new EventSource('/api/fs/events')
   eventSource.onmessage = () => {
     throttledRefresh()
@@ -453,7 +510,13 @@ function setupSSE() {
   eventSource.onerror = () => {
     eventSource?.close()
     eventSource = null
-    setTimeout(setupSSE, 5000)
+    if (sseReconnectTimer) {
+      clearTimeout(sseReconnectTimer)
+    }
+    sseReconnectTimer = window.setTimeout(() => {
+      sseReconnectTimer = null
+      setupSSE()
+    }, 5000)
   }
 }
 
@@ -469,6 +532,18 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   controller?.abort()
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+  if (sseReconnectTimer) {
+    clearTimeout(sseReconnectTimer)
+    sseReconnectTimer = null
+  }
+  if (toolMessageTimer) {
+    clearTimeout(toolMessageTimer)
+    toolMessageTimer = null
+  }
   if (eventSource) {
     eventSource.close()
     eventSource = null
@@ -477,7 +552,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="file-tree-panel">
+  <div
+    class="file-tree-panel"
+    @dragover.prevent="onDragOverRoot"
+    @dragleave="onDragLeave"
+    @drop="onDrop(currentDir, $event)"
+  >
     <div class="panel-heading">
       <div>
         <h2>WORKSPACE</h2>

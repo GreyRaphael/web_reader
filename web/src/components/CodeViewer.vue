@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { ICON_PATHS } from '@/utils/icons'
+import { ICON_PATHS, iconSvg } from '@/utils/icons'
 import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
+import { storedBoolean } from '@/utils/storage'
 
 const props = defineProps<{
   content: string
@@ -10,11 +11,13 @@ const props = defineProps<{
 
 const LARGE_FILE_BYTES = 100 * 1024 // 100 KB
 const LARGE_FILE_LINES = 3000
+const WORD_WRAP_KEY = 'web-reader-code-wrap'
 const textEncoder = new TextEncoder()
 
 const copied = ref(false)
 const isHighlighting = ref(false)
 const highlightedHtml = ref('')
+const isWordWrap = ref(storedBoolean(WORD_WRAP_KEY, false))
 const pendingTimers = new Set<number>()
 
 function scheduleTimeout(fn: () => void, delay: number): number {
@@ -70,6 +73,18 @@ function updateHighlighting() {
 
 watch([() => props.content, () => props.path], updateHighlighting, { immediate: true })
 
+watch(isWordWrap, (val) => {
+  try {
+    window.localStorage.setItem(WORD_WRAP_KEY, String(val))
+  } catch {
+    // Storage unavailable
+  }
+})
+
+function toggleWordWrap(): void {
+  isWordWrap.value = !isWordWrap.value
+}
+
 async function copyCode(): Promise<void> {
   try {
     await navigator.clipboard.writeText(props.content)
@@ -102,7 +117,19 @@ onBeforeUnmount(() => {
         <span v-if="isHighlighting" class="highlighting-spinner">高亮处理中…</span>
         <button
           type="button"
-          class="code-copy-btn"
+          class="code-tool-btn"
+          :class="{ active: isWordWrap }"
+          :aria-pressed="isWordWrap"
+          title="切换自动换行"
+          aria-label="切换自动换行"
+          @click="toggleWordWrap"
+        >
+          <span v-html="iconSvg('wrap-text', 14)"></span>
+          <span>{{ isWordWrap ? '已换行' : '换行' }}</span>
+        </button>
+        <button
+          type="button"
+          class="code-copy-btn code-tool-btn"
           :class="{ copied }"
           aria-label="复制代码"
           @click="copyCode"
@@ -124,7 +151,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="code-viewer-body scroll-surface" tabindex="0">
+    <div class="code-viewer-body scroll-surface" :class="{ 'word-wrap': isWordWrap }" tabindex="0">
       <pre class="code-gutter" aria-hidden="true">{{ lineNumbersText }}</pre>
       <pre
         class="code-content"
@@ -197,6 +224,37 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.code-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.code-tool-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.code-tool-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 .code-copy-btn {
   position: static;
   opacity: 1;
@@ -209,6 +267,10 @@ onBeforeUnmount(() => {
   border-radius: 0 0 9px 9px;
   background: var(--surface-muted);
   overflow-x: auto;
+}
+
+.code-viewer-body.word-wrap {
+  overflow-x: hidden;
 }
 
 .code-gutter {
@@ -245,6 +307,21 @@ onBeforeUnmount(() => {
   line-height: 1.45;
   tab-size: 4;
   white-space: pre;
+}
+
+.code-viewer-body.word-wrap .code-content {
+  width: 100%;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+.code-viewer-body.word-wrap .code-content code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 600px) {
