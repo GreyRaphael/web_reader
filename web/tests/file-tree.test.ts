@@ -53,6 +53,29 @@ describe('FileTree', () => {
     win.matchMedia = () => ({ matches: false })
   })
 
+  it('displays workspace root in breadcrumb root tooltip and opens settings from context menu', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    const rootCrumb = wrapper.find('.bc-crumb.bc-root')
+    expect(rootCrumb.exists()).toBe(true)
+    expect(rootCrumb.attributes('title')).toContain('/home/user/workspace')
+
+    await rootCrumb.trigger('contextmenu')
+    await flushPromises()
+
+    const contextMenu = wrapper.findComponent({ name: 'ContextMenu' })
+    expect(contextMenu.exists()).toBe(true)
+
+    const switchItem = contextMenu
+      .props('items')
+      .find((i: { label: string }) => i.label === '切换工作区路径...')
+    expect(switchItem).toBeDefined()
+    await switchItem.action()
+
+    expect(wrapper.emitted('openSettings')).toHaveLength(1)
+  })
+
   it('loads root directory on mount and navigates on directory click', async () => {
     const wrapper = mount(FileTree, { props: { selectedPath: '' } })
     await flushPromises()

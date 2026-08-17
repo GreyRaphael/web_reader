@@ -138,11 +138,11 @@ function toggleRight(event?: MouseEvent): void {
 }
 
 function closeDrawers(restoreFocus = true): void {
-  const wasOpen = mobileLeftOpen.value || mobileRightOpen.value
+  const borderOpen = mobileLeftOpen.value || mobileRightOpen.value
   mobileLeftOpen.value = false
   mobileRightOpen.value = false
   if (!restoreFocus) drawerTrigger = null
-  if (wasOpen && restoreFocus) {
+  if (borderOpen && restoreFocus) {
     const trigger = drawerTrigger
     drawerTrigger = null
     void nextTick(() => trigger?.focus())
@@ -538,6 +538,7 @@ onBeforeUnmount(() => {
           :selected-path="selectedItem?.path || ''"
           @open="handleTreeOpen"
           @close="closeDrawers()"
+          @open-settings="openSettings"
         />
       </aside>
 

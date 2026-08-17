@@ -21,7 +21,7 @@ import ContextMenu from './ContextMenu.vue'
 import TreeChildren from './TreeChildren.vue'
 
 const props = defineProps<{ selectedPath: string }>()
-const emit = defineEmits<{ open: [item: FsItem]; close: [] }>()
+const emit = defineEmits<{ open: [item: FsItem]; close: []; openSettings: [] }>()
 
 const workspaceRoot = ref('')
 const items = ref<FsItem[]>([])
@@ -366,6 +366,108 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
   contextMenu.value = { x: event.clientX, y: event.clientY, items }
 }
 
+function handleBreadcrumbContextMenu(
+  crumb: { name: string; path: string },
+  event: MouseEvent,
+): void {
+  event.preventDefault()
+  event.stopPropagation()
+  if (crumb.path === '') {
+    const items: ContextMenuItem[] = [
+      {
+        label: '切换工作区路径...',
+        icon: 'folder-open',
+        action: () => emit('openSettings'),
+      },
+      {
+        label: '复制工作区绝对路径',
+        icon: 'copy',
+        action: async () => {
+          try {
+            let root = workspaceRoot.value
+            if (!root) {
+              const res = await getWorkspace()
+              root = res.workspace
+              workspaceRoot.value = root
+            }
+            if (root) await navigator.clipboard.writeText(root)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+      { label: '', action: () => {}, separator: true },
+      {
+        label: '新建文件',
+        icon: 'file-text',
+        action: () => createWithPrompt('文件名：', createFile, '创建文件失败', ''),
+      },
+      {
+        label: '新建文件夹',
+        icon: 'folder',
+        action: () => createWithPrompt('文件夹名：', createDir, '创建文件夹失败', ''),
+      },
+      { label: '', action: () => {}, separator: true },
+      {
+        label: '刷新工作区',
+        icon: 'refresh-cw',
+        action: () => refreshDir(),
+      },
+    ]
+    contextMenu.value = { x: event.clientX, y: event.clientY, items }
+  } else {
+    const items: ContextMenuItem[] = [
+      {
+        label: '复制绝对路径',
+        icon: 'copy',
+        action: async () => {
+          try {
+            let root = workspaceRoot.value
+            if (!root) {
+              const res = await getWorkspace()
+              root = res.workspace
+              workspaceRoot.value = root
+            }
+            const absPath = resolveAbsolutePath(root, crumb.path)
+            await navigator.clipboard.writeText(absPath)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+      {
+        label: '复制相对路径',
+        icon: 'link',
+        action: async () => {
+          try {
+            await navigator.clipboard.writeText(crumb.path)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+      { label: '', action: () => {}, separator: true },
+      {
+        label: '新建文件',
+        icon: 'file-text',
+        action: () => createWithPrompt('文件名：', createFile, '创建文件失败', crumb.path),
+      },
+      {
+        label: '新建文件夹',
+        icon: 'folder',
+        action: () => createWithPrompt('文件夹名：', createDir, '创建文件夹失败', crumb.path),
+      },
+      { label: '', action: () => {}, separator: true },
+      {
+        label: '进入此目录',
+        icon: 'folder',
+        action: () => navigateTo(crumb.path),
+      },
+    ]
+    contextMenu.value = { x: event.clientX, y: event.clientY, items }
+  }
+}
+
 function closeContextMenu(): void {
   contextMenu.value = null
 }
@@ -606,9 +708,18 @@ onBeforeUnmount(() => {
           :class="{
             current: index === breadcrumb.length - 1,
             'drag-over': dragOverDir !== null && dragOverDir === crumb.path,
+            'bc-root': index === 0,
           }"
           type="button"
+          :title="
+            index === 0
+              ? workspaceRoot
+                ? `工作区根目录: ${workspaceRoot} (右键管理/切换)`
+                : '工作区根目录 (右键管理/切换)'
+              : `路径: ${crumb.path} (右键管理)`
+          "
           @click="navigateTo(crumb.path)"
+          @contextmenu="handleBreadcrumbContextMenu(crumb, $event)"
           @dragover.prevent="onDragOverBreadcrumb(crumb.path, $event)"
           @dragleave="onDragLeave($event)"
           @drop="onDrop(crumb.path, $event)"
