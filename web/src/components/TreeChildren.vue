@@ -73,6 +73,8 @@ function onDrop(item: FsItem, event: DragEvent): void {
 }
 
 function onContextMenu(item: FsItem, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
   emit('contextMenu', item, event)
 }
 

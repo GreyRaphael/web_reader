@@ -406,4 +406,26 @@ describe('FileTree', () => {
 
     expect(uploadFileMock).toHaveBeenCalledWith('rootfile.txt', expect.any(ArrayBuffer))
   })
+
+  it('opens blank context menu when right clicking empty area in tree scroll', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    const scrollArea = wrapper.find('.tree-scroll')
+    expect(scrollArea.exists()).toBe(true)
+
+    await scrollArea.trigger('contextmenu')
+    await flushPromises()
+
+    const contextMenu = wrapper.findComponent({ name: 'ContextMenu' })
+    expect(contextMenu.exists()).toBe(true)
+
+    const labels = contextMenu.props('items').map((i: { label: string }) => i.label)
+    expect(labels).toContain('新建文件')
+    expect(labels).toContain('新建文件夹')
+    expect(labels).toContain('上传文件...')
+    expect(labels).toContain('切换工作区路径...')
+    expect(labels).toContain('折叠所有文件夹')
+    expect(labels).toContain('刷新')
+  })
 })

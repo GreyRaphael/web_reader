@@ -294,7 +294,14 @@ function handleChildClick(item: FsItem): void {
 }
 
 function buildContextMenu(target: FsItem, event: MouseEvent): void {
-  const parentDir = target.kind === 'directory' ? target.path : workingDir.value
+  event.preventDefault()
+  event.stopPropagation()
+  const parentDir =
+    target.kind === 'directory'
+      ? target.path
+      : target.path.lastIndexOf('/') >= 0
+        ? target.path.slice(0, target.path.lastIndexOf('/'))
+        : ''
   const items: ContextMenuItem[] = [
     {
       label: '新建文件',
@@ -481,16 +488,122 @@ function closeContextMenu(): void {
   contextMenu.value = null
 }
 
-function handleContextMenu(event: MouseEvent): void {
+function buildBlankContextMenu(event: MouseEvent): void {
   event.preventDefault()
+  event.stopPropagation()
+  const dir = currentDir.value
+  const items: ContextMenuItem[] = [
+    {
+      label: '新建文件',
+      icon: 'file-text',
+      action: () => createWithPrompt('文件名：', createFile, '创建文件失败', dir),
+    },
+    {
+      label: '新建文件夹',
+      icon: 'folder',
+      action: () => createWithPrompt('文件夹名：', createDir, '创建文件夹失败', dir),
+    },
+    {
+      label: '上传文件...',
+      icon: 'upload',
+      action: () => handleUploadClick(),
+    },
+    { label: '', action: () => {}, separator: true },
+  ]
+
+  if (!dir) {
+    items.push(
+      {
+        label: '切换工作区路径...',
+        icon: 'folder-open',
+        action: () => emit('openSettings'),
+      },
+      {
+        label: '复制工作区绝对路径',
+        icon: 'copy',
+        action: async () => {
+          try {
+            let root = workspaceRoot.value
+            if (!root) {
+              const res = await getWorkspace()
+              root = res.workspace
+              workspaceRoot.value = root
+            }
+            if (root) await navigator.clipboard.writeText(root)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+    )
+  } else {
+    items.push(
+      {
+        label: '复制绝对路径',
+        icon: 'copy',
+        action: async () => {
+          try {
+            let root = workspaceRoot.value
+            if (!root) {
+              const res = await getWorkspace()
+              root = res.workspace
+              workspaceRoot.value = root
+            }
+            const absPath = resolveAbsolutePath(root, dir)
+            await navigator.clipboard.writeText(absPath)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+      {
+        label: '复制相对路径',
+        icon: 'link',
+        action: async () => {
+          try {
+            await navigator.clipboard.writeText(dir)
+          } catch {
+            // clipboard unavailable
+          }
+        },
+      },
+    )
+  }
+
+  items.push(
+    { label: '', action: () => {}, separator: true },
+    {
+      label: '折叠所有文件夹',
+      icon: 'collapse-all',
+      action: () => collapseAll(),
+    },
+    {
+      label: '刷新',
+      icon: 'refresh-cw',
+      action: () => refreshDir(),
+    },
+  )
+
+  contextMenu.value = { x: event.clientX, y: event.clientY, items }
+}
+
+function handleContextMenu(event: MouseEvent): void {
   const target = event.target as HTMLElement
+  if (target.closest('.panel-heading, .tree-breadcrumb')) return
+  event.preventDefault()
+  event.stopPropagation()
   const row = target.closest<HTMLElement>('.tree-row, .tree-child-row')
-  if (!row) return
-  const path = row.getAttribute('data-tree-path')
-  if (!path) return
-  const item = findItemByPath(path)
-  if (!item) return
-  buildContextMenu(item, event)
+  if (row) {
+    const path = row.getAttribute('data-tree-path')
+    if (path) {
+      const item = findItemByPath(path)
+      if (item) {
+        buildContextMenu(item, event)
+        return
+      }
+    }
+  }
+  buildBlankContextMenu(event)
 }
 
 function findItemByPath(path: string): FsItem | null {
@@ -660,6 +773,7 @@ onBeforeUnmount(() => {
     @dragover.prevent="onDragOverRoot"
     @dragleave="onDragLeave"
     @drop="onDrop(currentDir, $event)"
+    @contextmenu="handleContextMenu"
   >
     <div class="panel-heading">
       <div>
@@ -768,7 +882,6 @@ onBeforeUnmount(() => {
         class="file-tree"
         role="tree"
         aria-label="工作区文件"
-        @contextmenu="handleContextMenu"
       >
         <template v-for="item in items" :key="item.path">
           <li
