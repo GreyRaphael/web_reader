@@ -12,6 +12,7 @@ vi.mock('@/api/client', () => ({
   getTextFile: getTextFileMock,
   logout: logoutMock,
   getSettings: () => Promise.resolve({ enableTerminal: true }),
+  getWorkspace: () => Promise.resolve({ workspace: '/workspace' }),
 }))
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

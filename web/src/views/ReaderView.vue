@@ -8,7 +8,7 @@ import {
   ref,
   watch,
 } from 'vue'
-import { getFileMeta, getSettings, getTextFile, logout } from '@/api/client'
+import { getFileMeta, getSettings, getTextFile, getWorkspace, logout } from '@/api/client'
 import { iconSvg } from '@/utils/icons'
 import {
   storedBoolean,
@@ -16,7 +16,8 @@ import {
   setStoredNumber,
   storedUnboundedNumber,
 } from '@/utils/storage'
-import type { FsItem, TextResponse } from '@/api/types'
+import type { FsItem, TabItem, TextResponse } from '@/api/types'
+import DocumentTabs from '@/components/DocumentTabs.vue'
 import FileTree from '@/components/FileTree.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
@@ -78,6 +79,160 @@ const terminalOpen = ref(false)
 const terminalEnabled = ref(true)
 const terminalDialogRef = ref<HTMLDialogElement | null>(null)
 const fileTreeKey = ref(0)
+const workspaceRoot = ref('')
+
+const OPEN_TABS_KEY = 'web-reader-open-tabs'
+const RECENT_FILES_KEY = 'web-reader-recent-files'
+
+function loadStoredTabs(): TabItem[] {
+  try {
+    const raw = window.localStorage.getItem(OPEN_TABS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t) => t && typeof t.path === 'string')
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return []
+}
+
+function saveStoredTabs(tabs: TabItem[]): void {
+  try {
+    window.localStorage.setItem(
+      OPEN_TABS_KEY,
+      JSON.stringify(
+        tabs.map((t) => ({
+          path: t.path,
+          name: t.name,
+          previewKind: t.previewKind,
+          pinned: t.pinned,
+        })),
+      ),
+    )
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function loadRecentFiles(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_FILES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.filter((p) => typeof p === 'string')
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return []
+}
+
+const openTabs = ref<TabItem[]>(loadStoredTabs())
+const recentFiles = ref<string[]>(loadRecentFiles())
+
+function addRecentFile(path: string): void {
+  if (!path) return
+  const current = loadRecentFiles().filter((p) => p !== path)
+  current.unshift(path)
+  const trimmed = current.slice(0, 20)
+  recentFiles.value = trimmed
+  try {
+    window.localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(trimmed))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function handleTabSelect(path: string): void {
+  void openItem(path)
+}
+
+function handleTabClose(path: string): void {
+  const index = openTabs.value.findIndex((t) => t.path === path)
+  if (index === -1) return
+  openTabs.value.splice(index, 1)
+  saveStoredTabs(openTabs.value)
+
+  if (selectedItem.value?.path === path) {
+    if (openTabs.value.length > 0) {
+      const nextIndex = Math.min(index, openTabs.value.length - 1)
+      const nextTab = openTabs.value[nextIndex]
+      if (nextTab) void openItem(nextTab.path)
+    } else {
+      selectedItem.value = null
+      textContent.value = null
+      headings.value = []
+      activeHeading.value = ''
+      updateLocation('', 'replace')
+    }
+  }
+}
+
+function handleTabCloseOthers(path: string): void {
+  openTabs.value = openTabs.value.filter((t) => t.pinned || t.path === path)
+  saveStoredTabs(openTabs.value)
+  if (selectedItem.value?.path !== path) {
+    void openItem(path)
+  }
+}
+
+function handleTabCloseRight(path: string): void {
+  const index = openTabs.value.findIndex((t) => t.path === path)
+  if (index === -1) return
+  openTabs.value = openTabs.value.filter((t, i) => i <= index || t.pinned)
+  saveStoredTabs(openTabs.value)
+  const currentStillOpen = openTabs.value.some((t) => t.path === selectedItem.value?.path)
+  if (!currentStillOpen) {
+    void openItem(path)
+  }
+}
+
+function handleTabCloseAll(): void {
+  const pinnedOnly = openTabs.value.filter((t) => t.pinned)
+  openTabs.value = pinnedOnly
+  saveStoredTabs(openTabs.value)
+  if (pinnedOnly.length > 0) {
+    const first = pinnedOnly[0]
+    if (first) void openItem(first.path)
+  } else {
+    selectedItem.value = null
+    textContent.value = null
+    headings.value = []
+    activeHeading.value = ''
+    updateLocation('', 'replace')
+  }
+}
+
+function handleTabTogglePin(path: string): void {
+  const tab = openTabs.value.find((t) => t.path === path)
+  if (!tab) return
+  tab.pinned = !tab.pinned
+  openTabs.value.sort((a, b) => {
+    if (Boolean(a.pinned) === Boolean(b.pinned)) return 0
+    return a.pinned ? -1 : 1
+  })
+  saveStoredTabs(openTabs.value)
+}
+
+function handleOpenRecent(path: string): void {
+  void openItem(path)
+}
+
+function handleItemDeleted(item: FsItem): void {
+  if (item.kind === 'directory') {
+    const toClose = openTabs.value.filter(
+      (t) => t.path === item.path || t.path.startsWith(`${item.path}/`),
+    )
+    for (const t of toClose) {
+      handleTabClose(t.path)
+    }
+  } else {
+    handleTabClose(item.path)
+  }
+}
 
 function openSettings() {
   userMenuOpen.value = false
@@ -88,7 +243,14 @@ function handleWorkspaceUpdated() {
   selectedItem.value = null
   textContent.value = null
   terminalOpen.value = false
+  openTabs.value = []
+  saveStoredTabs([])
   fileTreeKey.value++
+  void getWorkspace()
+    .then((res) => {
+      workspaceRoot.value = res.workspace
+    })
+    .catch(() => {})
 }
 
 let previewRun = 0
@@ -152,7 +314,11 @@ function closeDrawers(restoreFocus = true): void {
 function updateLocation(path: string, mode: 'push' | 'replace' | 'none', hash = ''): void {
   if (mode === 'none') return
   const url = new URL(window.location.href)
-  url.searchParams.set('path', path)
+  if (path) {
+    url.searchParams.set('path', path)
+  } else {
+    url.searchParams.delete('path')
+  }
   url.hash = hash ? encodeURIComponent(hash) : ''
   window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url)
 }
@@ -183,6 +349,24 @@ async function openItem(
     if (item.kind !== 'file') throw new Error('目录不能在预览区打开')
 
     selectedItem.value = item
+    const existingIndex = openTabs.value.findIndex((t) => t.path === item.path)
+    if (existingIndex === -1) {
+      openTabs.value.push({
+        path: item.path,
+        name: item.name,
+        previewKind: item.previewKind,
+        pinned: false,
+      })
+    } else {
+      const tab = openTabs.value[existingIndex]
+      if (tab) {
+        tab.name = item.name
+        tab.previewKind = item.previewKind
+      }
+    }
+    saveStoredTabs(openTabs.value)
+    addRecentFile(item.path)
+
     if (getPreviewMode(item) === 'markdown') {
       rightVisible.value = true
     } else {
@@ -338,6 +522,43 @@ function handleKeydown(event: KeyboardEvent): void {
     terminalOpen.value = false
     return
   }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w') {
+    if (selectedItem.value) {
+      event.preventDefault()
+      handleTabClose(selectedItem.value.path)
+      return
+    }
+  }
+  if (
+    (event.altKey || (event.ctrlKey && event.shiftKey)) &&
+    (event.key === 'ArrowRight' || event.key === 'PageDown')
+  ) {
+    if (openTabs.value.length > 1 && selectedItem.value) {
+      const idx = openTabs.value.findIndex((t) => t.path === selectedItem.value?.path)
+      if (idx !== -1) {
+        event.preventDefault()
+        const nextIdx = (idx + 1) % openTabs.value.length
+        const nextTab = openTabs.value[nextIdx]
+        if (nextTab) void openItem(nextTab.path)
+        return
+      }
+    }
+  }
+  if (
+    (event.altKey || (event.ctrlKey && event.shiftKey)) &&
+    (event.key === 'ArrowLeft' || event.key === 'PageUp')
+  ) {
+    if (openTabs.value.length > 1 && selectedItem.value) {
+      const idx = openTabs.value.findIndex((t) => t.path === selectedItem.value?.path)
+      if (idx !== -1) {
+        event.preventDefault()
+        const prevIdx = (idx - 1 + openTabs.value.length) % openTabs.value.length
+        const prevTab = openTabs.value[prevIdx]
+        if (prevTab) void openItem(prevTab.path)
+        return
+      }
+    }
+  }
   if (event.key !== 'Tab') return
   const drawer = mobileLeftOpen.value
     ? leftDrawer.value
@@ -405,12 +626,22 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('popstate', handlePopState)
   window.addEventListener('resize', handleViewportChange)
+  void getWorkspace()
+    .then((res) => {
+      workspaceRoot.value = res.workspace
+    })
+    .catch(() => {})
   void getSettings()
     .then((res) => (terminalEnabled.value = res.enableTerminal))
     .catch(() => {})
   const url = new URL(window.location.href)
   const path = url.searchParams.get('path')
-  if (path) void openItem(path, decodeFragment(url.hash.slice(1)), 'none')
+  if (path) {
+    void openItem(path, decodeFragment(url.hash.slice(1)), 'none')
+  } else if (openTabs.value.length > 0) {
+    const first = openTabs.value[0]
+    if (first) void openItem(first.path, '', 'none')
+  }
 })
 
 onBeforeUnmount(() => {
@@ -539,6 +770,7 @@ onBeforeUnmount(() => {
           @open="handleTreeOpen"
           @close="closeDrawers()"
           @open-settings="openSettings"
+          @deleted="handleItemDeleted"
         />
       </aside>
 
@@ -555,21 +787,37 @@ onBeforeUnmount(() => {
         @pointerdown="startResize('left', $event)"
       ></div>
 
-      <PreviewPane
-        ref="previewPane"
-        :item="selectedItem"
-        :text="textContent"
-        :loading="loadingPreview"
-        :error="previewError"
-        :theme="resolved"
-        :inert="mobileLeftOpen || mobileRightOpen || undefined"
-        @headings="headings = $event"
-        @active-heading="activeHeading = $event"
-        @open-path="handleInternalOpen"
-        @retry="retryPreview"
-        @saved="handleFileSaved"
-        @toggle-outline="toggleRight()"
-      />
+      <div class="workspace-main">
+        <DocumentTabs
+          v-if="openTabs.length > 0"
+          :tabs="openTabs"
+          :active-path="selectedItem?.path || ''"
+          :workspace-root="workspaceRoot"
+          :recent-files="recentFiles"
+          @select="handleTabSelect"
+          @close="handleTabClose"
+          @close-others="handleTabCloseOthers"
+          @close-right="handleTabCloseRight"
+          @close-all="handleTabCloseAll"
+          @toggle-pin="handleTabTogglePin"
+          @open-recent="handleOpenRecent"
+        />
+        <PreviewPane
+          ref="previewPane"
+          :item="selectedItem"
+          :text="textContent"
+          :loading="loadingPreview"
+          :error="previewError"
+          :theme="resolved"
+          :inert="mobileLeftOpen || mobileRightOpen || undefined"
+          @headings="headings = $event"
+          @active-heading="activeHeading = $event"
+          @open-path="handleInternalOpen"
+          @retry="retryPreview"
+          @saved="handleFileSaved"
+          @toggle-outline="toggleRight()"
+        />
+      </div>
 
       <div
         class="panel-resizer right-resizer"

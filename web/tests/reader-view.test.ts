@@ -68,4 +68,31 @@ describe('ReaderView layout', () => {
     expect(window.localStorage.getItem('web-reader-left-visible')).toBe('false')
     expect(wrapper.get('#left-panel').attributes()).toHaveProperty('inert')
   })
+
+  it('handles multi-tab state and closing tabs', async () => {
+    installMatchMedia(false)
+    window.localStorage.setItem(
+      'web-reader-open-tabs',
+      JSON.stringify([
+        { path: 'doc1.md', name: 'doc1.md', previewKind: 'markdown', pinned: false },
+        { path: 'doc2.md', name: 'doc2.md', previewKind: 'markdown', pinned: false },
+      ]),
+    )
+    const wrapper = mount(ReaderView, {
+      props: { username: 'admin' },
+      global: { stubs },
+    })
+    await wrapper.vm.$nextTick()
+
+    const tabs = wrapper.findComponent({ name: 'DocumentTabs' })
+    expect(tabs.exists()).toBe(true)
+    expect(tabs.props('tabs')).toHaveLength(2)
+
+    // Close doc1.md
+    tabs.vm.$emit('close', 'doc1.md')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findComponent({ name: 'DocumentTabs' }).props('tabs')).toHaveLength(1)
+    expect(wrapper.findComponent({ name: 'DocumentTabs' }).props('tabs')[0]?.path).toBe('doc2.md')
+  })
 })

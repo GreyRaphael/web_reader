@@ -45,3 +45,10 @@ export interface TextResponse {
 export interface SettingsResponse {
   enableTerminal: boolean
 }
+
+export interface TabItem {
+  path: string
+  name: string
+  previewKind: PreviewKind
+  pinned?: boolean
+}

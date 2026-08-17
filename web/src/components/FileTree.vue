@@ -21,7 +21,12 @@ import ContextMenu from './ContextMenu.vue'
 import TreeChildren from './TreeChildren.vue'
 
 const props = defineProps<{ selectedPath: string }>()
-const emit = defineEmits<{ open: [item: FsItem]; close: []; openSettings: [] }>()
+const emit = defineEmits<{
+  open: [item: FsItem]
+  close: []
+  openSettings: []
+  deleted: [item: FsItem]
+}>()
 
 const workspaceRoot = ref('')
 const items = ref<FsItem[]>([])
@@ -267,6 +272,7 @@ async function handleDelete(item: FsItem): Promise<void> {
     expandedDirs.delete(item.path)
     childCache.delete(item.path)
     toolMessage.value = ''
+    emit('deleted', item)
     refreshDir()
   } catch (error) {
     toolMessage.value = error instanceof Error ? error.message : '删除失败'
