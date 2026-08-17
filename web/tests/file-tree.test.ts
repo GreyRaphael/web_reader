@@ -133,6 +133,24 @@ describe('FileTree', () => {
     expect(wrapper.text()).toContain('chapter1.md')
   })
 
+  it('collapses all expanded folders when collapse button is clicked', async () => {
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    const chevron = wrapper.find('.tree-chevron')
+    await chevron.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('chapter1.md')
+
+    const collapseBtn = wrapper.find('button[aria-label="折叠所有文件夹"]')
+    expect(collapseBtn.exists()).toBe(true)
+    await collapseBtn.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('chapter1.md')
+  })
+
   it('clicking file from expanded subtree opens it without navigating', async () => {
     const wrapper = mount(FileTree, { props: { selectedPath: '' } })
     await flushPromises()

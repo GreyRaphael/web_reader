@@ -121,6 +121,10 @@ function toggleExpand(dir: string): void {
   }
 }
 
+function collapseAll(): void {
+  expandedDirs.clear()
+}
+
 function isExpanded(dir: string): boolean {
   return expandedDirs.has(dir)
 }
@@ -413,6 +417,11 @@ function handleBreadcrumbContextMenu(
         icon: 'refresh-cw',
         action: () => refreshDir(),
       },
+      {
+        label: '折叠所有文件夹',
+        icon: 'collapse-all',
+        action: () => collapseAll(),
+      },
     ]
     contextMenu.value = { x: event.clientX, y: event.clientY, items }
   } else {
@@ -696,6 +705,14 @@ onBeforeUnmount(() => {
           :disabled="loading"
           v-html="iconSvg('refresh-cw', 16)"
           @click="refreshDir"
+        ></button>
+        <button
+          class="icon-button compact"
+          type="button"
+          title="折叠所有文件夹"
+          aria-label="折叠所有文件夹"
+          v-html="iconSvg('collapse-all', 16)"
+          @click="collapseAll"
         ></button>
       </div>
     </div>

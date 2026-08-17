@@ -18,6 +18,10 @@ export const ICON_PATHS: Record<string, string> = {
     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   'refresh-cw':
     '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  'collapse-all':
+    '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
+  'chevrons-down-up':
+    '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
   'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
   'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
   'chevrons-up': '<polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/>',
