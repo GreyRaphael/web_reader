@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { rawFileUrl } from '@/api/client'
-import { resolveReaderTarget, resolveWorkspacePath } from '@/utils/path'
+import { resolveAbsolutePath, resolveReaderTarget, resolveWorkspacePath } from '@/utils/path'
 
 describe('workspace path rewriting', () => {
   it('resolves relative paths against the current document', () => {
@@ -36,5 +36,19 @@ describe('workspace path rewriting', () => {
       '/api/fs/raw?path=guide%2Fimages%2Fcover+one.png',
     )
     expect(rawFileUrl('a.txt', true)).toBe('/api/fs/raw?path=a.txt&download=1')
+    expect(rawFileUrl('photo.png', false, { retry: '2' })).toBe(
+      '/api/fs/raw?path=photo.png&retry=2',
+    )
+  })
+
+  it('resolves absolute path correctly with workspace root', () => {
+    expect(resolveAbsolutePath('/home/user/workspace', 'doc/readme.md')).toBe(
+      '/home/user/workspace/doc/readme.md',
+    )
+    expect(resolveAbsolutePath('/home/user/workspace/', '/doc/readme.md')).toBe(
+      '/home/user/workspace/doc/readme.md',
+    )
+    expect(resolveAbsolutePath('/home/user/workspace', '')).toBe('/home/user/workspace')
+    expect(resolveAbsolutePath('', 'doc/readme.md')).toBe('doc/readme.md')
   })
 })

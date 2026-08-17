@@ -64,3 +64,11 @@ export function resolveReaderTarget(currentFile: string, reference: string): Rea
   if (!path || !pathname) return null
   return { path, hash }
 }
+
+export function resolveAbsolutePath(workspaceRoot: string, relativePath: string): string {
+  const root = (workspaceRoot || '').trim().replace(/\/+$/, '')
+  const rel = (relativePath || '').trim().replace(/^\/+/, '')
+  if (!root) return rel
+  if (!rel) return root
+  return `${root}/${rel}`
+}

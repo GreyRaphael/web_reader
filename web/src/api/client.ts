@@ -126,8 +126,16 @@ export async function getTextFile(path: string, signal?: AbortSignal): Promise<T
   return request<TextResponse>(apiUrl('/fs/text', { path }), { signal })
 }
 
-export function rawFileUrl(path: string, download = false): string {
-  return apiUrl('/fs/raw', download ? { path, download: '1' } : { path })
+export function rawFileUrl(
+  path: string,
+  download = false,
+  extraParams?: Record<string, string>,
+): string {
+  const params: Record<string, string> = { path, ...(extraParams || {}) }
+  if (download) {
+    params.download = '1'
+  }
+  return apiUrl('/fs/raw', params)
 }
 
 export function zipUrl(path: string): string {

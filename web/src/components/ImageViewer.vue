@@ -11,7 +11,13 @@ const retryKey = ref(0)
 const lightboxOpen = ref(false)
 const lightboxRef = ref<HTMLDialogElement | null>(null)
 let previouslyFocused: HTMLElement | null = null
-const imageSource = computed(() => `${rawFileUrl(props.item.path)}&retry=${retryKey.value}`)
+const imageSource = computed(() =>
+  rawFileUrl(
+    props.item.path,
+    false,
+    retryKey.value > 0 ? { retry: String(retryKey.value) } : undefined,
+  ),
+)
 
 watch(
   () => props.item.path,

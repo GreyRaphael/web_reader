@@ -91,13 +91,7 @@ export function highlightCode(code: string, lang: string): string {
   return escapeHtml(code)
 }
 
-export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
+import { escapeHtml } from '@/utils/escape'
 
+export { escapeHtml }
 export default Prism

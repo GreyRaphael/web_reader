@@ -4,14 +4,17 @@ import {
   createDir,
   createFile,
   deleteFile,
+  getWorkspace,
   listDirectory,
   moveFile,
   rawFileUrl,
+  renameFile,
   uploadFile,
   zipUrl,
 } from '@/api/client'
 import type { FsItem } from '@/api/types'
 import { iconSvg, fileIconName } from '@/utils/icons'
+import { resolveAbsolutePath } from '@/utils/path'
 import { sortFileItems } from '@/utils/sort'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
@@ -20,6 +23,7 @@ import TreeChildren from './TreeChildren.vue'
 const props = defineProps<{ selectedPath: string }>()
 const emit = defineEmits<{ open: [item: FsItem]; close: [] }>()
 
+const workspaceRoot = ref('')
 const items = ref<FsItem[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
@@ -276,7 +280,6 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
       action: async () => {
         const newName = prompt('新名称：', target.name)
         if (!newName) return
-        const { renameFile } = await import('@/api/client')
         try {
           await renameFile(target.path, newName)
           refreshDir()
@@ -291,7 +294,14 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
       icon: 'copy',
       action: async () => {
         try {
-          await navigator.clipboard.writeText(target.path)
+          let root = workspaceRoot.value
+          if (!root) {
+            const res = await getWorkspace()
+            root = res.workspace
+            workspaceRoot.value = root
+          }
+          const absPath = resolveAbsolutePath(root, target.path)
+          await navigator.clipboard.writeText(absPath)
         } catch {
           // clipboard API unavailable
         }
@@ -448,6 +458,11 @@ function setupSSE() {
 }
 
 onMounted(() => {
+  void getWorkspace()
+    .then((res) => {
+      workspaceRoot.value = res.workspace
+    })
+    .catch(() => {})
   loadDir('')
   setupSSE()
 })

@@ -4,6 +4,7 @@ import FileTree from '@/components/FileTree.vue'
 import type { FsItem } from '@/api/types'
 
 const listDirectoryMock = vi.hoisted(() => vi.fn())
+const getWorkspaceMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/client', () => ({
   listDirectory: listDirectoryMock,
@@ -12,6 +13,8 @@ vi.mock('@/api/client', () => ({
   deleteFile: vi.fn(),
   moveFile: vi.fn(),
   uploadFile: vi.fn(),
+  renameFile: vi.fn(),
+  getWorkspace: getWorkspaceMock,
 }))
 
 const directory: FsItem = {
@@ -40,6 +43,8 @@ describe('FileTree', () => {
     listDirectoryMock.mockImplementation(async (path: string) => ({
       items: path === '' ? [directory] : [markdown],
     }))
+    getWorkspaceMock.mockReset()
+    getWorkspaceMock.mockResolvedValue({ workspace: '/home/user/workspace' })
     const win = window as unknown as { matchMedia: () => { matches: boolean } }
     win.matchMedia = () => ({ matches: false })
   })
@@ -113,5 +118,30 @@ describe('FileTree', () => {
 
     expect(wrapper.emitted('open')).toEqual([[markdown]])
     expect(wrapper.findAll('.bc-crumb').length).toBe(1)
+  })
+
+  it('opens context menu and copies absolute path', async () => {
+    const writeTextMock = vi.fn()
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    })
+
+    const wrapper = mount(FileTree, { props: { selectedPath: '' } })
+    await flushPromises()
+
+    const labelBtn = wrapper.find('.tree-label')
+    await labelBtn.trigger('contextmenu')
+    await flushPromises()
+
+    const contextMenu = wrapper.findComponent({ name: 'ContextMenu' })
+    expect(contextMenu.exists()).toBe(true)
+
+    const absCopyItem = contextMenu
+      .props('items')
+      .find((i: { label: string }) => i.label === '复制绝对路径')
+    expect(absCopyItem).toBeDefined()
+    await absCopyItem.action()
+
+    expect(writeTextMock).toHaveBeenCalledWith('/home/user/workspace/book1')
   })
 })
