@@ -18,10 +18,8 @@ export const ICON_PATHS: Record<string, string> = {
     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   'refresh-cw':
     '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
-  'collapse-all':
-    '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
-  'chevrons-down-up':
-    '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
+  'collapse-all': '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
+  'chevrons-down-up': '<polyline points="7 20 12 15 17 20"/><polyline points="7 4 12 9 17 4"/>',
   'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
   'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
   'chevrons-up': '<polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/>',
@@ -84,8 +82,7 @@ export const ICON_PATHS: Record<string, string> = {
     '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
   undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
   redo: '<path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>',
-  function:
-    '<path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3.3"/><path d="M9 11.2h5.7"/>',
+  function: '<path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3.3"/><path d="M9 11.2h5.7"/>',
   network:
     '<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>',
 }

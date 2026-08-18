@@ -152,7 +152,7 @@ describe('MarkdownEditor component', () => {
     const taskBtn = wrapper.find('button[aria-label="待办任务列表"]')
     await taskBtn.trigger('click')
 
-    let lastUpdate = wrapper.emitted('update:content')!.at(-1)
+    const lastUpdate = wrapper.emitted('update:content')!.at(-1)
     expect(lastUpdate![0]).toBe('Item 1\nItem 2')
   })
 

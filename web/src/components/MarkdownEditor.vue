@@ -838,7 +838,9 @@ defineExpose({ getTextareaElement, syncScroll, undo, redo })
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .toolbar-btn:hover {

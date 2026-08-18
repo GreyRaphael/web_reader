@@ -194,7 +194,11 @@ watch(
         @keydown.enter.prevent="handleTabClick(tab)"
         @keydown.space.prevent="handleTabClick(tab)"
       >
-        <span class="tab-icon" aria-hidden="true" v-html="iconSvg(tabIcon(tab.previewKind), 13)"></span>
+        <span
+          class="tab-icon"
+          aria-hidden="true"
+          v-html="iconSvg(tabIcon(tab.previewKind), 13)"
+        ></span>
         <span class="tab-title">{{ tab.name }}</span>
         <span
           v-if="tab.pinned"

@@ -124,4 +124,24 @@ x^2+y^2
     expect(links[3]?.dataset.readerHash).toBe('FAQ')
     expect(links[3]?.textContent).toContain('#FAQ')
   })
+
+  it('renders file:// URI links as inert formatted spans with tooltip', () => {
+    const result = renderMarkdown(
+      'See [FileTree.vue](file:///home/gewei/workspace/web_reader/web/src/components/FileTree.vue) for details.',
+      'docs/index.md',
+    )
+    const root = document.createElement('div')
+    root.innerHTML = result.html
+
+    expect(root.querySelector('a')).toBeNull()
+    const span = root.querySelector<HTMLSpanElement>('span.file-uri-link')
+    expect(span).not.toBeNull()
+    expect(span?.textContent).toBe('FileTree.vue')
+    expect(span?.getAttribute('title')).toBe(
+      'file:///home/gewei/workspace/web_reader/web/src/components/FileTree.vue',
+    )
+    expect(span?.dataset.fileUri).toBe(
+      'file:///home/gewei/workspace/web_reader/web/src/components/FileTree.vue',
+    )
+  })
 })

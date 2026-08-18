@@ -71,6 +71,10 @@ function isExternalReference(reference: string): boolean {
   return /^(?:https?:|mailto:|tel:|\/\/)/i.test(reference)
 }
 
+function isFileUriReference(reference: string): boolean {
+  return /^file:\/\//i.test(reference.trim())
+}
+
 function createMarkdown(currentPath: string, headings: MarkdownHeading[]): MarkdownIt {
   const md: MarkdownIt = new MarkdownIt({
     html: false,
@@ -81,6 +85,14 @@ function createMarkdown(currentPath: string, headings: MarkdownHeading[]): Markd
       return highlightCode(code, language)
     },
   })
+
+  const defaultValidateLink = md.validateLink.bind(md)
+  md.validateLink = (url: string): boolean => {
+    if (isFileUriReference(url)) {
+      return true
+    }
+    return defaultValidateLink(url)
+  }
 
   mathPlugin(md)
   taskListPlugin(md)
@@ -133,6 +145,10 @@ function createMarkdown(currentPath: string, headings: MarkdownHeading[]): Markd
     const token = tokens[index]
     if (!token) return ''
     const href = token.attrGet('href') ?? ''
+    if (isFileUriReference(href)) {
+      const escapedHref = md.utils.escapeHtml(href)
+      return `<span class="file-uri-link" title="${escapedHref}" data-file-uri="${escapedHref}">`
+    }
     const target = resolveReaderTarget(currentPath, href)
     if (target) {
       token.attrSet('data-reader-path', target.path)
@@ -150,6 +166,29 @@ function createMarkdown(currentPath: string, headings: MarkdownHeading[]): Markd
     }
     return defaultLinkOpen
       ? defaultLinkOpen(tokens, index, options, env, renderer)
+      : renderer.renderToken(tokens, index, options)
+  }
+
+  const defaultLinkClose = md.renderer.rules.link_close?.bind(md.renderer.rules)
+  md.renderer.rules.link_close = (tokens, index, options, env, renderer) => {
+    let depth = 0
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const token = tokens[i]
+      if (token?.type === 'link_close') {
+        depth += 1
+      } else if (token?.type === 'link_open') {
+        if (depth === 0) {
+          const href = token.attrGet('href') ?? ''
+          if (isFileUriReference(href)) {
+            return '</span>'
+          }
+          break
+        }
+        depth -= 1
+      }
+    }
+    return defaultLinkClose
+      ? defaultLinkClose(tokens, index, options, env, renderer)
       : renderer.renderToken(tokens, index, options)
   }
 
@@ -187,6 +226,7 @@ export function renderMarkdown(source: string, currentPath: string): RenderedMar
       'data-wiki-target',
       'data-wiki-hash',
       'data-invalid-source',
+      'data-file-uri',
       'aria-hidden',
       'aria-label',
       'aria-checked',

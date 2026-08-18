@@ -883,12 +883,7 @@ onBeforeUnmount(() => {
         <span>{{ errorMessage }}</span>
         <button class="secondary-button" type="button" @click="loadDir(currentDir)">重试</button>
       </div>
-      <ul
-        v-else
-        class="file-tree"
-        role="tree"
-        aria-label="工作区文件"
-      >
+      <ul v-else class="file-tree" role="tree" aria-label="工作区文件">
         <template v-for="item in items" :key="item.path">
           <li
             class="tree-node"

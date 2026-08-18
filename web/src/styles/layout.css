@@ -1069,7 +1069,9 @@
   cursor: pointer;
   white-space: nowrap;
   position: relative;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
   outline: none;
 }
 
@@ -1144,7 +1146,10 @@
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0.6;
-  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .tab-item:hover .tab-close-btn,
@@ -1178,7 +1183,9 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .tab-action-btn:hover {
