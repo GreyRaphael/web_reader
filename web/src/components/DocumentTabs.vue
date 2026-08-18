@@ -208,15 +208,15 @@ watch(
           v-html="iconSvg('pin', 11)"
           @click.stop="emit('togglePin', tab.path)"
         ></span>
-        <button
+        <span
           v-if="!tab.pinned"
           class="tab-close-btn"
-          type="button"
+          role="button"
           :aria-label="`关闭 ${tab.name}`"
           title="关闭 (中键也可关闭)"
           v-html="iconSvg('x', 12)"
           @click="handleCloseClick(tab, $event)"
-        ></button>
+        ></span>
       </div>
     </div>
 

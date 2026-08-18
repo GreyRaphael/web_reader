@@ -809,6 +809,7 @@ onBeforeUnmount(() => {
           :loading="loadingPreview"
           :error="previewError"
           :theme="resolved"
+          :outline-open="mobileViewport ? mobileRightOpen : rightVisible"
           :inert="mobileLeftOpen || mobileRightOpen || undefined"
           @headings="headings = $event"
           @active-heading="activeHeading = $event"

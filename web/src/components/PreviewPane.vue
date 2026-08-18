@@ -17,6 +17,7 @@ const props = defineProps<{
   loading: boolean
   error: string
   theme: ResolvedTheme
+  outlineOpen?: boolean
 }>()
 const emit = defineEmits<{
   headings: [items: MarkdownHeading[]]
@@ -72,6 +73,7 @@ defineExpose({ scrollToHeading })
           :content="text!.content"
           :current-path="item!.path"
           :theme="theme"
+          :outline-open="outlineOpen"
           @headings="emit('headings', $event)"
           @active-heading="emit('activeHeading', $event)"
           @open-path="forwardOpenPath"

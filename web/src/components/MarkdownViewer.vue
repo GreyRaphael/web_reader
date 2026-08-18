@@ -16,6 +16,7 @@ const props = defineProps<{
   content: string
   currentPath: string
   theme: ResolvedTheme
+  outlineOpen?: boolean
 }>()
 const emit = defineEmits<{
   headings: [items: MarkdownHeading[]]
@@ -383,7 +384,10 @@ function requestScrollUpdate(): void {
 
 function installScrollSpy(): void {
   removeScrollSpy()
-  scrollContainer = article.value?.closest<HTMLElement>('.preview-scroll') ?? null
+  scrollContainer =
+    article.value?.closest<HTMLElement>('.preview-pane-col') ??
+    article.value?.closest<HTMLElement>('.preview-scroll') ??
+    null
   scrollContainer?.addEventListener('scroll', requestScrollUpdate, { passive: true })
   requestScrollUpdate()
 }
@@ -904,8 +908,9 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="outline-toggle-btn icon-button compact"
-          title="切换文章大纲"
-          aria-label="切换文章大纲"
+          :aria-expanded="outlineOpen ? 'true' : 'false'"
+          title="切换大纲栏"
+          aria-label="切换大纲栏"
           v-html="iconSvg('outline', 16)"
           @click="emit('toggleOutline')"
         ></button>
@@ -1092,17 +1097,20 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 5px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text);
+  opacity: 0.85;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition:
     background-color 120ms ease,
-    color 120ms ease;
+    color 120ms ease,
+    opacity 120ms ease;
 }
 
 .mode-btn:hover {
+  opacity: 1;
   color: var(--text);
 }
 
@@ -1110,6 +1118,7 @@ onBeforeUnmount(() => {
   background: var(--surface);
   color: var(--accent-strong);
   font-weight: 700;
+  opacity: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -1256,6 +1265,8 @@ onBeforeUnmount(() => {
 .preview-pane-col {
   height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mermaid-popover-toast {

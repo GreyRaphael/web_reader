@@ -962,6 +962,8 @@ defineExpose({ getTextareaElement, syncScroll, undo, redo })
   word-break: break-word;
   overflow-wrap: break-word;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   color: var(--text);
   background: transparent;
   caret-color: var(--accent-strong, var(--accent));

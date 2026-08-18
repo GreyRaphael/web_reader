@@ -153,6 +153,7 @@ test('supports mobile drawers without page overflow', async ({ page }) => {
   )
   expect(overflows).toBe(false)
 
-  await page.getByRole('button', { name: '退出' }).click()
+  await page.locator('.user-avatar').click()
+  await page.getByRole('button', { name: '退出登录' }).click()
   await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible()
 })
