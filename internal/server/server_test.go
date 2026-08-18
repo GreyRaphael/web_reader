@@ -463,4 +463,3 @@ func TestTerminalCSWSHProtection(t *testing.T) {
 		t.Fatalf("terminal with evil origin got %d, want 403 Forbidden", recCrossSite.Code)
 	}
 }
-
