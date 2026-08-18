@@ -80,20 +80,40 @@ func (h *Handler) Session(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"authenticated": false})
 }
 
+// matchHost compares two host strings, ignoring case and normalizing standard default ports.
+func matchHost(originHost, targetHost string) bool {
+	if strings.EqualFold(originHost, targetHost) {
+		return true
+	}
+	cleanOrigin := originHost
+	cleanTarget := targetHost
+	for _, suffix := range []string{":80", ":443"} {
+		cleanOrigin = strings.TrimSuffix(cleanOrigin, suffix)
+		cleanTarget = strings.TrimSuffix(cleanTarget, suffix)
+	}
+	return strings.EqualFold(cleanOrigin, cleanTarget)
+}
+
 // requireSameOrigin enforces a strict same-origin check for state-changing
-// requests. Unlike sameOrigin, it rejects requests that omit the Origin
-// header entirely, since browsers always send Origin on same-origin fetch
-// POST/DELETE requests.
+// requests. It verifies the Origin header (or Referer if Origin is omitted).
 func requireSameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return false
+	if origin != "" {
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Host == "" {
+			return false
+		}
+		return matchHost(parsed.Host, r.Host)
 	}
-	parsed, err := url.Parse(origin)
-	if err != nil {
-		return false
+	referer := r.Header.Get("Referer")
+	if referer != "" {
+		parsed, err := url.Parse(referer)
+		if err != nil || parsed.Host == "" {
+			return false
+		}
+		return matchHost(parsed.Host, r.Host)
 	}
-	return strings.EqualFold(parsed.Host, r.Host)
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -8,8 +8,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -136,3 +138,55 @@ func newRequestID() string {
 	}
 	return hex.EncodeToString(raw[:])
 }
+
+// matchHost compares two host strings, ignoring case and normalizing standard default ports.
+func matchHost(originHost, targetHost string) bool {
+	if strings.EqualFold(originHost, targetHost) {
+		return true
+	}
+	cleanOrigin := originHost
+	cleanTarget := targetHost
+	for _, suffix := range []string{":80", ":443"} {
+		cleanOrigin = strings.TrimSuffix(cleanOrigin, suffix)
+		cleanTarget = strings.TrimSuffix(cleanTarget, suffix)
+	}
+	return strings.EqualFold(cleanOrigin, cleanTarget)
+}
+
+// requireSameOrigin enforces same-origin validation.
+// It verifies the Origin header, falling back to Referer if Origin is omitted.
+func requireSameOrigin(r *http.Request) bool {
+	rawOrigin := r.Header.Get("Origin")
+	if rawOrigin != "" {
+		parsed, err := url.Parse(rawOrigin)
+		if err != nil || parsed.Host == "" {
+			return false
+		}
+		return matchHost(parsed.Host, r.Host)
+	}
+	rawReferer := r.Header.Get("Referer")
+	if rawReferer != "" {
+		parsed, err := url.Parse(rawReferer)
+		if err != nil || parsed.Host == "" {
+			return false
+		}
+		return matchHost(parsed.Host, r.Host)
+	}
+	return false
+}
+
+// csrfProtection enforces same-origin checks on all state-modifying HTTP methods
+// (POST, PUT, PATCH, DELETE) to protect against CSRF attacks.
+func csrfProtection(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			if !requireSameOrigin(r) {
+				writeError(w, http.StatusForbidden, "invalid_origin", "Request origin is not allowed")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+

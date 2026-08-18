@@ -65,9 +65,9 @@ func New(cfg Config) *Server {
 	})
 	mux.Handle("/", spaHandler(cfg.Assets))
 
-	handler := securityHeaders(recoverPanic(requestLogger(mux)))
+	handler := securityHeaders(recoverPanic(requestLogger(csrfProtection(mux))))
 	if cfg.AppConfig.SecureCookie {
-		handler = securityHeadersWithHSTS(recoverPanic(requestLogger(mux)))
+		handler = securityHeadersWithHSTS(recoverPanic(requestLogger(csrfProtection(mux))))
 	}
 	return &Server{
 		config:          cfg,
@@ -135,6 +135,10 @@ func terminalHandler(service *workspacefs.Service, enabled *bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !*enabled {
 			writeError(w, http.StatusNotFound, "terminal_disabled", "Terminal is disabled in settings")
+			return
+		}
+		if !requireSameOrigin(r) {
+			writeError(w, http.StatusForbidden, "invalid_origin", "Request origin is not allowed")
 			return
 		}
 		terminal.Handler(service.GetRoot()).ServeHTTP(w, r)

@@ -328,3 +328,139 @@ func TestSettingsAPI(t *testing.T) {
 		t.Fatalf("GET /api/settings status = %d, body = %s", getRec.Code, getRec.Body.String())
 	}
 }
+
+func TestCSRFProtectionOnWriteOperations(t *testing.T) {
+	srv := newTestServer(t)
+	handler := srv.Handler()
+	cookie := loginCookie(t, handler)
+
+	testCases := []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		origin     string
+		referer    string
+		wantStatus int
+	}{
+		{
+			name:       "POST settings with matching origin allowed",
+			method:     http.MethodPost,
+			target:     "/api/settings",
+			body:       `{"enableTerminal":true}`,
+			origin:     "http://example.com",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "POST settings with matching referer allowed",
+			method:     http.MethodPost,
+			target:     "/api/settings",
+			body:       `{"enableTerminal":true}`,
+			referer:    "http://example.com/settings",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "POST settings with mismatched origin rejected",
+			method:     http.MethodPost,
+			target:     "/api/settings",
+			body:       `{"enableTerminal":false}`,
+			origin:     "http://evil.com",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "POST settings with missing origin rejected",
+			method:     http.MethodPost,
+			target:     "/api/settings",
+			body:       `{"enableTerminal":false}`,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "POST create file with mismatched origin rejected",
+			method:     http.MethodPost,
+			target:     "/api/fs/file",
+			body:       `{"path":"csrf.txt"}`,
+			origin:     "http://evil.com",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "POST create file with matching origin allowed",
+			method:     http.MethodPost,
+			target:     "/api/fs/file",
+			body:       `{"path":"legit.txt"}`,
+			origin:     "http://example.com",
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "DELETE file with mismatched origin rejected",
+			method:     http.MethodDelete,
+			target:     "/api/fs/delete?path=legit.txt",
+			origin:     "http://attacker.com",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "DELETE file with matching origin allowed",
+			method:     http.MethodDelete,
+			target:     "/api/fs/delete?path=legit.txt",
+			origin:     "http://example.com",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "POST workspace switch with mismatched origin rejected",
+			method:     http.MethodPost,
+			target:     "/api/workspace",
+			body:       `{"workspace":"/tmp"}`,
+			origin:     "http://evil.com",
+			wantStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var bodyReader *strings.Reader
+			if tc.body != "" {
+				bodyReader = strings.NewReader(tc.body)
+			} else {
+				bodyReader = strings.NewReader("")
+			}
+			req := httptest.NewRequest(tc.method, tc.target, bodyReader)
+			req.AddCookie(cookie)
+			if tc.body != "" {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			if tc.referer != "" {
+				req.Header.Set("Referer", tc.referer)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("expected status %d, got %d, body: %s", tc.wantStatus, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestTerminalCSWSHProtection(t *testing.T) {
+	handler := newTestServerWithTerminal(t).Handler()
+	cookie := loginCookie(t, handler)
+
+	// Missing origin is rejected with 403 Forbidden
+	reqMissingOrigin := authenticatedRequest(http.MethodGet, "/api/terminal", cookie)
+	recMissing := httptest.NewRecorder()
+	handler.ServeHTTP(recMissing, reqMissingOrigin)
+	if recMissing.Code != http.StatusForbidden {
+		t.Fatalf("terminal without origin got %d, want 403 Forbidden", recMissing.Code)
+	}
+
+	// Mismatched cross-site origin is rejected with 403 Forbidden
+	reqCrossSite := authenticatedRequest(http.MethodGet, "/api/terminal", cookie)
+	reqCrossSite.Header.Set("Origin", "http://evil.com")
+	recCrossSite := httptest.NewRecorder()
+	handler.ServeHTTP(recCrossSite, reqCrossSite)
+	if recCrossSite.Code != http.StatusForbidden {
+		t.Fatalf("terminal with evil origin got %d, want 403 Forbidden", recCrossSite.Code)
+	}
+}
+
