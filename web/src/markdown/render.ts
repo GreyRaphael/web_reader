@@ -6,6 +6,7 @@ import { createUniqueSlugger } from '@/utils/slug'
 import { isRelativeReference, resolveReaderTarget, resolveWorkspacePath } from '@/utils/path'
 import { highlightCode } from '@/utils/prism'
 import { mathPlugin } from './math'
+import { wikiLinksPlugin } from './wikilinks'
 
 export interface MarkdownHeading {
   id: string
@@ -83,6 +84,7 @@ function createMarkdown(currentPath: string, headings: MarkdownHeading[]): Markd
 
   mathPlugin(md)
   taskListPlugin(md)
+  wikiLinksPlugin(md, currentPath)
 
   const defaultFence = md.renderer.rules.fence?.bind(md.renderer.rules)
   md.renderer.rules.fence = (tokens, index, options, env, renderer) => {
@@ -182,6 +184,8 @@ export function renderMarkdown(source: string, currentPath: string): RenderedMar
       'tabindex',
       'data-reader-path',
       'data-reader-hash',
+      'data-wiki-target',
+      'data-wiki-hash',
       'data-invalid-source',
       'aria-hidden',
       'aria-label',

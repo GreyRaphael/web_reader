@@ -133,6 +133,32 @@
   display: none;
 }
 
+.markdown-body a.wiki-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0.1em 0.45em;
+  margin: 0 0.1em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-strong);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.markdown-body a.wiki-link:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-bottom-style: solid;
+}
+
+.markdown-body a.wiki-link .wiki-link-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.75;
+}
+
 .markdown-body :not(pre) > code {
   padding: 0.14em 0.36em;
   border: 1px solid var(--border);

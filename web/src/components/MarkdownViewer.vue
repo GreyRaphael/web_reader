@@ -51,6 +51,55 @@ const isSaving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
 
+const DRAFT_KEY_PREFIX = 'web-reader-draft:'
+const draftKey = computed(() => `${DRAFT_KEY_PREFIX}${props.currentPath}`)
+const draftAvailable = ref(false)
+const draftSavedAt = ref('')
+const pendingDraftContent = ref('')
+
+function checkDraft(): void {
+  try {
+    const raw = window.localStorage.getItem(draftKey.value)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed.content === 'string' && parsed.content !== props.content) {
+        draftAvailable.value = true
+        pendingDraftContent.value = parsed.content
+        const d = new Date(parsed.timestamp || Date.now())
+        const pad = (n: number) => String(n).padStart(2, '0')
+        draftSavedAt.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+        return
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  draftAvailable.value = false
+  pendingDraftContent.value = ''
+}
+
+function restoreDraft(): void {
+  if (pendingDraftContent.value) {
+    editableContent.value = pendingDraftContent.value
+    debounceRender(editableContent.value)
+  }
+  draftAvailable.value = false
+}
+
+function discardDraft(): void {
+  try {
+    window.localStorage.removeItem(draftKey.value)
+  } catch {
+    // Ignore storage errors
+  }
+  draftAvailable.value = false
+  pendingDraftContent.value = ''
+  if (editableContent.value !== props.content) {
+    editableContent.value = props.content
+    debounceRender(props.content)
+  }
+}
+
 const popoverText = ref('')
 const popoverIsError = ref(false)
 const popoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
@@ -107,6 +156,7 @@ const previewColRef = ref<HTMLElement | null>(null)
 
 let isSyncingEditor = false
 let isSyncingPreview = false
+let isRenderingMarkdown = false
 
 function handleEditorScroll(e: Event) {
   if (viewMode.value !== 'split' || isSyncingPreview) return
@@ -128,7 +178,11 @@ function handleEditorScroll(e: Event) {
 }
 
 function handlePreviewScroll(e: Event) {
-  if (viewMode.value !== 'split' || isSyncingEditor) return
+  if (viewMode.value !== 'split' || isSyncingEditor || isRenderingMarkdown) return
+  const textarea = editorRef.value?.getTextareaElement()
+  // When the editor textarea is focused (e.g. typing or clicking toolbar), do not let preview DOM churn hijack editor scroll
+  if (textarea && document.activeElement === textarea) return
+
   isSyncingPreview = true
   const target = e.target as HTMLElement
   const maxPreviewScroll = target.scrollHeight - target.clientHeight
@@ -137,7 +191,6 @@ function handlePreviewScroll(e: Event) {
     return
   }
   const percentage = target.scrollTop / maxPreviewScroll
-  const textarea = editorRef.value?.getTextareaElement()
   if (textarea) {
     const maxEditorScroll = textarea.scrollHeight - textarea.clientHeight
     textarea.scrollTop = percentage * maxEditorScroll
@@ -613,6 +666,7 @@ async function renderMermaidDiagrams(): Promise<void> {
 }
 
 async function updateMarkdownText(sourceText: string): Promise<void> {
+  isRenderingMarkdown = true
   cleanupPanzoom()
   try {
     rendered.value = renderMarkdown(sourceText, props.currentPath)
@@ -627,6 +681,9 @@ async function updateMarkdownText(sourceText: string): Promise<void> {
   installScrollSpy()
   injectCodeCopyButtons()
   await renderMermaidDiagrams()
+  requestAnimationFrame(() => {
+    isRenderingMarkdown = false
+  })
 }
 
 async function handleSave(): Promise<void> {
@@ -636,6 +693,12 @@ async function handleSave(): Promise<void> {
   try {
     await saveTextFile(props.currentPath, editableContent.value)
     saveSuccess.value = true
+    try {
+      window.localStorage.removeItem(draftKey.value)
+    } catch {
+      // Ignore storage errors
+    }
+    draftAvailable.value = false
     emit('saved', props.currentPath)
     scheduleTimeout(() => {
       saveSuccess.value = false
@@ -734,13 +797,30 @@ defineExpose({ scrollToHeading })
 
 watch(
   () => [props.content, props.currentPath],
-  () => {
+  ([newContent]) => {
+    editableContent.value = newContent ?? ''
+    checkDraft()
     updateMarkdownText(editableContent.value)
   },
   { immediate: true },
 )
 
 watch(editableContent, (newText) => {
+  if (props.currentPath) {
+    try {
+      if (newText !== props.content) {
+        window.localStorage.setItem(
+          draftKey.value,
+          JSON.stringify({ content: newText, timestamp: Date.now() }),
+        )
+      } else {
+        window.localStorage.removeItem(draftKey.value)
+        draftAvailable.value = false
+      }
+    } catch {
+      // Ignore storage quota
+    }
+  }
   if (viewMode.value !== 'edit') {
     debounceRender(newText)
   }
@@ -832,11 +912,24 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- LocalStorage Draft Recovery Banner -->
+    <div v-if="draftAvailable" class="draft-recovery-banner" role="alert">
+      <div class="draft-recovery-info">
+        <span class="draft-icon">📝</span>
+        <span>检测到此文档存在未保存的本地草稿（保存于 {{ draftSavedAt }}）</span>
+      </div>
+      <div class="draft-recovery-actions">
+        <button type="button" class="draft-btn primary" @click="restoreDraft">恢复草稿</button>
+        <button type="button" class="draft-btn" @click="discardDraft">放弃草稿</button>
+      </div>
+    </div>
+
     <div class="markdown-body-wrapper" :class="`mode-${viewMode}`">
       <div v-if="viewMode === 'edit' || viewMode === 'split'" class="editor-pane">
         <MarkdownEditor
           ref="editorRef"
           v-model:content="editableContent"
+          :current-path="currentPath"
           @save="handleSave"
           @scroll="handleEditorScroll"
         />
@@ -1069,6 +1162,62 @@ onBeforeUnmount(() => {
 
 .save-btn:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.draft-recovery-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-raised));
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  z-index: 5;
+}
+
+.draft-recovery-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-recovery-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.draft-btn:hover {
+  background: var(--surface-hover);
+}
+
+.draft-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+.draft-btn.primary:hover {
+  filter: brightness(1.1);
 }
 
 .markdown-body-wrapper {

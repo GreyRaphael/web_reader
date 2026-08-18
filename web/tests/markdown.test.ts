@@ -98,4 +98,30 @@ x^2+y^2
     expect(result.html).toContain('class="code-block scroll-surface"')
     expect(result.html).toContain('class="mermaid-diagram scroll-surface"')
   })
+
+  it('renders wiki-links [[Target]], [[Target|Alias]], [[Target#Heading]], and [[#Heading]]', () => {
+    const result = renderMarkdown(
+      'Check out [[Guide]] and [[Guide|使用指南]] as well as [[Architecture#Design|架构设计]] and [[#FAQ]].',
+      'docs/index.md',
+    )
+    const root = document.createElement('div')
+    root.innerHTML = result.html
+
+    const links = root.querySelectorAll<HTMLAnchorElement>('a.wiki-link')
+    expect(links).toHaveLength(4)
+
+    expect(links[0]?.dataset.readerPath).toBe('docs/Guide.md')
+    expect(links[0]?.textContent).toContain('Guide')
+
+    expect(links[1]?.dataset.readerPath).toBe('docs/Guide.md')
+    expect(links[1]?.textContent).toContain('使用指南')
+
+    expect(links[2]?.dataset.readerPath).toBe('docs/Architecture.md')
+    expect(links[2]?.dataset.readerHash).toBe('Design')
+    expect(links[2]?.textContent).toContain('架构设计')
+
+    expect(links[3]?.dataset.readerPath).toBe('docs/index.md')
+    expect(links[3]?.dataset.readerHash).toBe('FAQ')
+    expect(links[3]?.textContent).toContain('#FAQ')
+  })
 })
