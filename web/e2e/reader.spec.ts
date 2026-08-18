@@ -111,9 +111,8 @@ flowchart LR
   })
 
   expect(layout.viewBoxWidth).toBeGreaterThan(1_500)
-  expect(Math.abs(layout.renderedWidth - layout.viewBoxWidth)).toBeLessThan(1)
-  expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth)
-  expect(layout.overflow).toBe('visible')
+  expect(layout.renderedWidth).toBeLessThanOrEqual(layout.clientWidth)
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
   expect(layout.edges).toHaveLength(7)
   expect(layout.edges.every((edge) => edge.length > 0 && edge.marker?.startsWith('url(#'))).toBe(
     true,

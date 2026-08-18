@@ -487,6 +487,7 @@
 
 .mermaid-diagram {
   position: relative;
+  max-width: 100%;
   margin: 1.6em 0;
   padding: 1em;
   border: 1px solid var(--border);
@@ -501,9 +502,13 @@
 }
 
 .mermaid-output {
-  width: max-content;
-  min-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
   min-height: 48px;
+  overflow: hidden;
   font-family: var(--font-sans);
 }
 
@@ -516,6 +521,8 @@
 
 .mermaid-output svg {
   display: block;
+  width: 100%;
+  max-width: 100%;
   height: auto;
   margin: 0 auto;
   overflow: visible;
