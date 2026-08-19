@@ -420,8 +420,7 @@
 }
 
 .markdown-body table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   font-family: var(--font-sans);
   font-size: 0.82em;
@@ -430,12 +429,13 @@
 
 .markdown-body th,
 .markdown-body td {
-  min-width: 90px;
   padding: 0.65em 0.8em;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .markdown-body th {
