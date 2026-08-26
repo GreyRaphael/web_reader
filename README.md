@@ -300,6 +300,34 @@ make build
 
 ## 🔐 安全须知
 
-1. **HTTPS 建议**：明文 HTTP 会暴露 Session Cookie。在公网环境部署时，强烈建议配置 Nginx / Caddy 反向代理并开启 HTTPS（同时设置 `WEB_READER_SECURE_COOKIE=true`）。
+1. **HTTPS 建议**：明文 HTTP 会暴露 Session Cookie，且部分浏览器特性（如图片写入剪切板）受限。在公网环境部署时，强烈建议配置 Nginx / Caddy 反向代理并开启 HTTPS（同时设置 `WEB_READER_SECURE_COOKIE=true`）。
 2. **密码哈希保护**：不要将密码明文或环境变量中的密码哈希提交至公共代码仓库。
 3. **符号链接防护**：后端防范任何指向 Workspace 根目录外部的符号链接或相对路径穿透行为。
+
+---
+
+## ❓ 常见问题与排查 (FAQ)
+
+### Q: 在服务器通过 HTTP 访问时，Mermaid 右上角菜单点击“复制 PNG 图片”提示「剪切板写入受限」？
+
+* **原因分析**：
+  现代浏览器对异步剪切板二进制写入 API（`navigator.clipboard.write([new ClipboardItem(...)])`）有严格的 **安全上下文（Secure Context）** 限制。
+  - 在本地开发时（`http://localhost` 或 `http://127.0.0.1`），浏览器默认视为安全上下文，可正常复制；
+  - 部署到服务器后，若通过 `http://<服务器IP>:<端口>` 或明文 HTTP 域名访问，浏览器出于安全机制会直接禁用该 API，导致写入剪切板失败。
+
+* **解决方案**：
+  1. **方案 A（推荐，生产环境）**：配置 Nginx / Caddy 反向代理并启用 HTTPS 证书，在安全上下文中使用全部功能；
+  2. **方案 B（替代操作）**：直接点击图表菜单中的 **「导出透明 PNG 图片」**（下载图标），文件下载功能不受 HTTP 协议限制；
+  3. **方案 C（内网/局域网免证书配置）**：为客户端浏览器配置安全来源白名单：
+     - **Chrome / Edge / Chromium 系列浏览器**：
+       1. 在浏览器地址栏输入并打开：`chrome://flags/#unsafely-treat-insecure-origin-as-secure`（Edge 对应 `edge://flags/#unsafely-treat-insecure-origin-as-secure`）；
+       2. 在 **Insecure origins treated as secure** 输入框中，填入您的 HTTP 服务地址（例如：`http://192.168.1.100:8848`，多个地址用英文逗号分隔）；
+       3. 将右侧下拉选项设置为 **Enabled**；
+       4. 点击右下角 **Relaunch** 重启浏览器即可。
+     - **Firefox 浏览器**：
+       1. 在地址栏输入并打开：`about:config`，点击接受风险并继续；
+       2. 搜索 `dom.securecontext.whitelist`，类型选择 **字符串 (String)**，填入您的服务地址或域名（例如：`http://192.168.1.100:8848` 或 `192.168.1.100`，多个项用逗号分隔），点击右侧对勾保存；
+       3. 搜索 `dom.events.asyncClipboard.clipboardItem`，确保其值为 **`true`**（若为 `false` 则双击切换为 `true`）；
+       4. 重启 Firefox 浏览器生效。
+
+
