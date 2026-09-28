@@ -253,4 +253,3 @@ describe('MarkdownViewer export to PDF', () => {
     expect(article.find('.mermaid-source').text()).toContain('X-->Y')
   })
 })
-
