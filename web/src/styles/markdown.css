@@ -1,8 +1,8 @@
 .markdown-body {
-  width: min(100%, 1024px);
+  width: min(100%, 1400px);
   min-height: 100%;
   margin: 0 auto;
-  padding: clamp(14px, 2.5vw, 24px) clamp(16px, 3vw, 40px) max(64px, env(safe-area-inset-bottom));
+  padding: clamp(14px, 2.5vw, 24px) clamp(16px, 2.5vw, 36px) max(64px, env(safe-area-inset-bottom));
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-serif);
@@ -457,17 +457,26 @@
 }
 
 .math-inline {
-  display: inline-flex;
+  display: inline-block;
+  vertical-align: -0.12em;
+  overflow: visible;
   max-width: 100%;
-  overflow-x: auto;
-  vertical-align: middle;
+  scrollbar-width: none;
+}
+
+.math-inline::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .math-block,
 .math-display-inline {
   margin: 1.35em 0;
-  padding: 0.65em 0.2em;
+  padding: 0.65em 0.2em 0.85em;
   text-align: center;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 .math-display-inline {
@@ -479,6 +488,18 @@
   width: max-content;
   min-width: 100%;
   margin: 0;
+  padding: 2px 0;
+}
+
+.math-block::-webkit-scrollbar,
+.math-display-inline::-webkit-scrollbar {
+  height: 5px;
+}
+
+.math-block::-webkit-scrollbar-thumb,
+.math-display-inline::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
 }
 
 .math-error {

@@ -40,13 +40,6 @@ function getInitialViewMode(): ViewMode {
 }
 
 const viewMode = ref<ViewMode>(getInitialViewMode())
-watch(viewMode, (newMode) => {
-  try {
-    window.localStorage.setItem(VIEW_MODE_KEY, newMode)
-  } catch {
-    // Ignore storage errors
-  }
-})
 const editableContent = ref(props.content)
 const isSaving = ref(false)
 const saveError = ref('')
@@ -867,6 +860,57 @@ watch(editableContent, (newText) => {
   }
   if (viewMode.value !== 'edit') {
     debounceRender(newText)
+  }
+})
+
+watch(viewMode, async (newMode, oldMode) => {
+  try {
+    window.localStorage.setItem(VIEW_MODE_KEY, newMode)
+  } catch {
+    // Ignore storage errors
+  }
+
+  // Cancel any pending debounce timer to avoid delayed out-of-order renders
+  if (debounceRenderTimer !== null) {
+    clearTimeout(debounceRenderTimer)
+    debounceRenderTimer = null
+  }
+
+  // 1. When switching from edit mode to preview or split mode, the article element
+  // has just been remounted (v-if). We must re-render the latest content and mermaid diagrams.
+  if (newMode !== 'edit' && (oldMode === 'edit' || !article.value)) {
+    await nextTick()
+    await updateMarkdownText(editableContent.value)
+  } else if (oldMode === 'split' && newMode === 'preview') {
+    // 2. When switching from split to preview, flush any un-rendered edits immediately
+    await updateMarkdownText(editableContent.value)
+  }
+
+  // 3. Smoothly align scroll positions between editor and preview when entering split mode
+  if (newMode === 'split') {
+    await nextTick()
+    if (oldMode === 'preview' && previewColRef.value && editorRef.value) {
+      const maxPreview = previewColRef.value.scrollHeight - previewColRef.value.clientHeight
+      if (maxPreview > 0) {
+        const ratio = previewColRef.value.scrollTop / maxPreview
+        const textarea = editorRef.value.getTextareaElement()
+        if (textarea) {
+          const maxEditor = textarea.scrollHeight - textarea.clientHeight
+          textarea.scrollTop = ratio * maxEditor
+          editorRef.value.syncScroll()
+        }
+      }
+    } else if (oldMode === 'edit' && previewColRef.value && editorRef.value) {
+      const textarea = editorRef.value.getTextareaElement()
+      if (textarea) {
+        const maxEditor = textarea.scrollHeight - textarea.clientHeight
+        if (maxEditor > 0) {
+          const ratio = textarea.scrollTop / maxEditor
+          const maxPreview = previewColRef.value.scrollHeight - previewColRef.value.clientHeight
+          previewColRef.value.scrollTop = ratio * maxPreview
+        }
+      }
+    }
   }
 })
 

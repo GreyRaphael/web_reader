@@ -165,10 +165,10 @@ onBeforeUnmount(() => {
 .code-viewer {
   display: flex;
   flex-direction: column;
-  width: min(100%, 1024px);
+  width: min(100%, 1400px);
   min-height: 100%;
   margin: 0 auto;
-  padding: clamp(16px, 3vw, 32px) clamp(16px, 3vw, 40px) max(48px, env(safe-area-inset-bottom));
+  padding: clamp(16px, 3vw, 32px) clamp(16px, 2.5vw, 36px) max(48px, env(safe-area-inset-bottom));
 }
 
 .code-viewer-header {

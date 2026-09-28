@@ -150,5 +150,107 @@ describe('MarkdownViewer export to PDF', () => {
     expect(printSpy).toHaveBeenCalledTimes(1)
     expect(wrapper.find('article.markdown-body').exists()).toBe(true)
   })
+
+  it('re-renders content and mermaid diagrams when switching from edit to preview mode', async () => {
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Original\n\n```mermaid\ngraph TD\nA-->B\n```',
+        currentPath: 'notes/diagram.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    // Switch to edit mode
+    const editBtn = wrapper.findAll('.mode-btn')[1]
+    await editBtn?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.editor-pane').exists()).toBe(true)
+    expect(wrapper.find('article.markdown-body').exists()).toBe(false)
+
+    // Simulate editing in the editor
+    const textarea = wrapper.find('textarea')
+    if (textarea.exists()) {
+      await textarea.setValue('# Updated Title\n\n```mermaid\ngraph TD\nC-->D\n```')
+    } else {
+      // If CodeMirror or custom component, update editableContent ref through child or prop
+      const editor = wrapper.findComponent({ name: 'MarkdownEditor' })
+      editor.vm.$emit('update:content', '# Updated Title\n\n```mermaid\ngraph TD\nC-->D\n```')
+    }
+    await flushPromises()
+
+    // Switch back to preview mode
+    const previewBtn = wrapper.findAll('.mode-btn')[0]
+    await previewBtn?.trigger('click')
+    await flushPromises()
+
+    // Article should be back in DOM with updated content and mermaid diagram
+    const article = wrapper.find('article.markdown-body')
+    expect(article.exists()).toBe(true)
+    expect(article.text()).toContain('Updated Title')
+    expect(article.find('.mermaid-diagram').exists()).toBe(true)
+    expect(article.find('.mermaid-source').text()).toContain('C-->D')
+  })
+
+  it('re-renders content and mermaid diagrams when switching from edit to split mode', async () => {
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Original\n\n```mermaid\ngraph TD\nA-->B\n```',
+        currentPath: 'notes/diagram.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    // Switch to edit mode
+    const editBtn = wrapper.findAll('.mode-btn')[1]
+    await editBtn?.trigger('click')
+    await flushPromises()
+
+    // Edit content
+    const editor = wrapper.findComponent({ name: 'MarkdownEditor' })
+    editor.vm.$emit('update:content', '# Split Updated\n\n```mermaid\ngraph TD\nE-->F\n```')
+    await flushPromises()
+
+    // Switch to split mode
+    const splitBtn = wrapper.findAll('.mode-btn')[2]
+    await splitBtn?.trigger('click')
+    await flushPromises()
+
+    // Both editor and preview should exist in DOM
+    expect(wrapper.find('.editor-pane').exists()).toBe(true)
+    const article = wrapper.find('article.markdown-body')
+    expect(article.exists()).toBe(true)
+    expect(article.text()).toContain('Split Updated')
+    expect(article.find('.mermaid-source').text()).toContain('E-->F')
+  })
+
+  it('flushes pending edits when switching from split to preview mode', async () => {
+    window.localStorage.setItem('web-reader-markdown-view-mode', 'split')
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Original\n\n```mermaid\ngraph TD\nA-->B\n```',
+        currentPath: 'notes/diagram.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.editor-pane').exists()).toBe(true)
+    expect(wrapper.find('article.markdown-body').exists()).toBe(true)
+
+    // Edit content
+    const editor = wrapper.findComponent({ name: 'MarkdownEditor' })
+    editor.vm.$emit('update:content', '# Quick Preview\n\n```mermaid\ngraph TD\nX-->Y\n```')
+    // Immediately switch without waiting for 200ms debounce
+    const previewBtn = wrapper.findAll('.mode-btn')[0]
+    await previewBtn?.trigger('click')
+    await flushPromises()
+
+    const article = wrapper.find('article.markdown-body')
+    expect(article.text()).toContain('Quick Preview')
+    expect(article.find('.mermaid-source').text()).toContain('X-->Y')
+  })
 })
 

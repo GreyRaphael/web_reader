@@ -5,6 +5,17 @@
     margin: 15mm 15mm 15mm 15mm;
   }
 
+  /* Completely suppress scrollbars in print mode */
+  * {
+    scrollbar-width: none !important;
+  }
+
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
   /* Reset layout constraints and overflow to enable multi-page printing */
   html,
   body,
@@ -31,7 +42,7 @@
     box-shadow: none !important;
   }
 
-  /* Hide app navigation, sidebars, toolbars, and editor */
+  /* Hide app navigation, sidebars, toolbars, tabs, and editor */
   .app-toolbar,
   .toolbar-message,
   .side-panel,
@@ -39,9 +50,14 @@
   .right-panel,
   .panel-resizer,
   .document-tabs,
+  .document-tabs-bar,
+  .tabs-actions,
+  .more-menu-wrapper,
   .markdown-toolbar,
   .draft-recovery-banner,
   .editor-pane,
+  .code-viewer-header,
+  .image-viewer-toolbar,
   .mermaid-popover-toast,
   .mermaid-modal,
   .mermaid-toolbar,
@@ -121,6 +137,19 @@
     display: none !important;
   }
 
+  /* Scroll containers reset */
+  .scroll-surface,
+  .table-scroll,
+  .code-block,
+  .math-block,
+  .math-display-inline,
+  .math-inline {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    max-width: 100% !important;
+  }
+
   /* Tables */
   .table-scroll {
     overflow: visible !important;
@@ -146,10 +175,36 @@
   }
 
   /* KaTeX formulas */
-  .katex-display {
+  .math-block,
+  .math-display-inline {
+    margin: 1em 0 !important;
+    padding: 0.2em 0 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin: 1em 0 !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: center !important;
+  }
+
+  .math-block > .katex-display,
+  .math-display-inline > .katex-display,
+  .katex-display {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0.5em 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .katex,
+  .katex-html {
     overflow: visible !important;
   }
 
