@@ -714,6 +714,46 @@ async function handleSave(): Promise<void> {
   }
 }
 
+const isExportingPdf = ref(false)
+async function handleExportPdf(): Promise<void> {
+  if (isExportingPdf.value) return
+  isExportingPdf.value = true
+
+  const prevMode = viewMode.value
+  const needRestore = prevMode === 'edit'
+
+  if (needRestore) {
+    viewMode.value = 'preview'
+  }
+  await updateMarkdownText(editableContent.value)
+  await nextTick()
+
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
+    window.removeEventListener('afterprint', onAfterPrint)
+    isExportingPdf.value = false
+    if (needRestore) {
+      viewMode.value = prevMode
+    }
+  }
+
+  const onAfterPrint = () => {
+    cleanup()
+  }
+
+  window.addEventListener('afterprint', onAfterPrint, { once: true })
+
+  try {
+    if (typeof window.print === 'function') {
+      window.print()
+    }
+  } catch {
+    cleanup()
+  }
+}
+
 function handleClick(event: MouseEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
@@ -904,6 +944,17 @@ onBeforeUnmount(() => {
         <span v-if="saveError" class="error-tag">{{ saveError }}</span>
         <button type="button" class="save-btn" :disabled="!isDirty || isSaving" @click="handleSave">
           {{ isSaving ? '保存中…' : '保存' }}
+        </button>
+        <button
+          type="button"
+          class="export-pdf-btn"
+          :disabled="isExportingPdf"
+          title="导出为 PDF (通过浏览器打印另存为 PDF)"
+          aria-label="导出为 PDF"
+          @click="handleExportPdf"
+        >
+          <span v-html="iconSvg('printer', 14)"></span>
+          <span>导出 PDF</span>
         </button>
         <button
           type="button"
@@ -1171,6 +1222,49 @@ onBeforeUnmount(() => {
 
 .save-btn:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.export-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.export-pdf-btn:hover {
+  background: var(--surface-muted);
+  border-color: var(--border-hover, var(--border));
+  color: var(--accent);
+}
+
+.export-pdf-btn:active {
+  background: var(--surface-raised);
+}
+
+.export-pdf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-pdf-btn svg {
+  color: var(--text-muted);
+  transition: color 120ms ease;
+}
+
+.export-pdf-btn:hover svg {
+  color: var(--accent);
 }
 
 .draft-recovery-banner {

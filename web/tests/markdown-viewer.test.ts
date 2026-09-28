@@ -69,3 +69,86 @@ describe('MarkdownViewer draft auto-save and recovery', () => {
     expect(wrapper.find('.draft-recovery-banner').exists()).toBe(false)
   })
 })
+
+describe('MarkdownViewer export to PDF', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.print = vi.fn()
+  })
+
+  it('renders export PDF button to the right of save button', async () => {
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Test Document\n\nSome text.',
+        currentPath: 'notes/doc.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    const toolbarActions = wrapper.find('.markdown-toolbar-actions')
+    expect(toolbarActions.exists()).toBe(true)
+
+    const buttons = toolbarActions.findAll('button')
+    // Save button is first button, Export PDF button is immediately after it
+    const saveBtn = toolbarActions.find('.save-btn')
+    const exportBtn = toolbarActions.find('.export-pdf-btn')
+
+    expect(saveBtn.exists()).toBe(true)
+    expect(exportBtn.exists()).toBe(true)
+    expect(exportBtn.text()).toContain('导出 PDF')
+
+    // Verify ordering in DOM: export button comes after save button
+    const saveIdx = buttons.findIndex((b) => b.classes().includes('save-btn'))
+    const exportIdx = buttons.findIndex((b) => b.classes().includes('export-pdf-btn'))
+    expect(exportIdx).toBe(saveIdx + 1)
+  })
+
+  it('triggers window.print when export PDF button is clicked', async () => {
+    const printSpy = vi.fn()
+    window.print = printSpy
+
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Test Document\n\nContent for print.',
+        currentPath: 'notes/doc.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    const exportBtn = wrapper.find('.export-pdf-btn')
+    await exportBtn.trigger('click')
+    await flushPromises()
+
+    expect(printSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches to preview before printing when in edit mode', async () => {
+    window.localStorage.setItem('web-reader-markdown-view-mode', 'edit')
+    const printSpy = vi.fn()
+    window.print = printSpy
+
+    const wrapper = mount(MarkdownViewer, {
+      props: {
+        content: '# Test Document\n\nContent for print.',
+        currentPath: 'notes/doc.md',
+        theme: 'night',
+      },
+    })
+    await flushPromises()
+
+    // Initially in edit mode, article should not be rendered
+    expect(wrapper.find('.editor-pane').exists()).toBe(true)
+    expect(wrapper.find('article.markdown-body').exists()).toBe(false)
+
+    const exportBtn = wrapper.find('.export-pdf-btn')
+    await exportBtn.trigger('click')
+    await flushPromises()
+
+    // print should be called and article should have rendered
+    expect(printSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('article.markdown-body').exists()).toBe(true)
+  })
+})
+
