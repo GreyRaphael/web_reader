@@ -201,9 +201,9 @@ func (s *Service) Apply(ctx context.Context, onRestart func()) (*ApplyResult, er
 	hasher := sha256.New()
 	writer := io.MultiWriter(tempArchive, hasher)
 
-	if err := s.downloadFile(ctx, asset.BrowserDownloadURL, writer); err != nil {
+	if dlErr := s.downloadFile(ctx, asset.BrowserDownloadURL, writer); dlErr != nil {
 		_ = tempArchive.Close()
-		return nil, fmt.Errorf("download update asset: %w", err)
+		return nil, fmt.Errorf("download update asset: %w", dlErr)
 	}
 	_ = tempArchive.Close()
 
@@ -227,11 +227,12 @@ func (s *Service) Apply(ctx context.Context, onRestart func()) (*ApplyResult, er
 	tempNewExePath := tempNewExe.Name()
 	defer os.Remove(tempNewExePath)
 
-	if strings.HasSuffix(asset.Name, ".zip") {
+	switch {
+	case strings.HasSuffix(asset.Name, ".zip"):
 		err = extractFromZip(tempArchiveName, targetBinaryName, tempNewExe)
-	} else if strings.HasSuffix(asset.Name, ".tar.gz") || strings.HasSuffix(asset.Name, ".tgz") {
+	case strings.HasSuffix(asset.Name, ".tar.gz"), strings.HasSuffix(asset.Name, ".tgz"):
 		err = extractFromTarGz(tempArchiveName, targetBinaryName, tempNewExe)
-	} else {
+	default:
 		err = fmt.Errorf("unsupported archive format: %s", asset.Name)
 	}
 	_ = tempNewExe.Close()
@@ -387,6 +388,8 @@ func (s *Service) getExecutablePath() (string, error) {
 	return filepath.EvalSymlinks(exe)
 }
 
+const maxDecompressedBinarySize = 100 << 20 // 100 MiB limit to prevent decompression bomb
+
 func extractFromZip(zipPath, targetName string, out io.Writer) error {
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -406,7 +409,7 @@ func extractFromZip(zipPath, targetName string, out io.Writer) error {
 				return err
 			}
 			defer rc.Close()
-			_, err = io.Copy(out, rc)
+			_, err = io.Copy(out, io.LimitReader(rc, maxDecompressedBinarySize))
 			return err
 		}
 	}
@@ -440,8 +443,8 @@ func extractFromTarGz(tarGzPath, targetName string, out io.Writer) error {
 		if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
 			continue
 		}
-		if filepath.Base(cleanName) == targetName && (hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA) {
-			_, err = io.Copy(out, tr)
+		if filepath.Base(cleanName) == targetName && hdr.Typeflag == tar.TypeReg {
+			_, err = io.Copy(out, io.LimitReader(tr, maxDecompressedBinarySize))
 			return err
 		}
 	}
