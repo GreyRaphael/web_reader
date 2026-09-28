@@ -33,12 +33,14 @@ test:
 test-e2e: build
 	$(PNPM) --dir $(WEB_DIR) test:e2e
 
+VERSION ?= v$$(node -p "require('./web/package.json').version")
+
 build:
 	$(PNPM) --dir $(WEB_DIR) build
 	@test -d $(DIST_DIR)/assets
 	@! grep -q "frontend has not been built yet" $(DIST_DIR)/index.html
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o $(BINARY) ./cmd/web-reader
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X 'web_reader/internal/version.Version=$(VERSION)'" -o $(BINARY) ./cmd/web-reader
 	$(MAKE) reset-dist
 
 reset-dist:

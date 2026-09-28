@@ -16,6 +16,8 @@ import (
 	"web_reader/internal/config"
 	workspacefs "web_reader/internal/filesystem"
 	"web_reader/internal/terminal"
+	"web_reader/internal/updater"
+	"web_reader/internal/version"
 )
 
 type Server struct {
@@ -31,10 +33,16 @@ type Config struct {
 	Files           *workspacefs.Service
 	Assets          fs.FS
 	TerminalEnabled bool
+	Updater         *updater.Service
+	RestartTrigger  func()
 }
 
 func New(cfg Config) *Server {
 	terminalEnabled := cfg.TerminalEnabled
+	updaterSvc := cfg.Updater
+	if updaterSvc == nil {
+		updaterSvc = updater.NewService(version.Get())
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -49,6 +57,8 @@ func New(cfg Config) *Server {
 	mux.Handle("GET /api/terminal", cfg.Sessions.Require(terminalHandler(cfg.Files, &terminalEnabled)))
 	mux.Handle("GET /api/settings", cfg.Sessions.Require(http.HandlerFunc(getSettingsHandler(&terminalEnabled))))
 	mux.Handle("POST /api/settings", cfg.Sessions.Require(http.HandlerFunc(setSettingsHandler(&terminalEnabled))))
+	mux.Handle("GET /api/update/check", cfg.Sessions.Require(http.HandlerFunc(checkUpdateHandler(updaterSvc))))
+	mux.Handle("POST /api/update/apply", cfg.Sessions.Require(http.HandlerFunc(applyUpdateHandler(updaterSvc, cfg.RestartTrigger))))
 	mux.Handle("GET /api/fs/meta", cfg.Sessions.Require(http.HandlerFunc(metaHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/text", cfg.Sessions.Require(http.HandlerFunc(textHandler(cfg.Files))))
 	mux.Handle("GET /api/fs/raw", cfg.Sessions.Require(http.HandlerFunc(rawHandler(cfg.Files))))
@@ -173,6 +183,34 @@ func setSettingsHandler(enabled *bool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]bool{
 			"enableTerminal": *enabled,
 		})
+	}
+}
+
+func checkUpdateHandler(svc *updater.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := svc.Check(r.Context())
+		if err != nil {
+			slog.Warn("check update failed", "error", err)
+			writeError(w, http.StatusBadGateway, "check_update_failed", "检查更新失败: "+err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, res)
+	}
+}
+
+func applyUpdateHandler(svc *updater.Service, restartTrigger func()) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := svc.Apply(r.Context(), restartTrigger)
+		if err != nil {
+			slog.Error("apply update failed", "error", err)
+			if errors.Is(err, updater.ErrUpdateInProgress) {
+				writeError(w, http.StatusConflict, "update_in_progress", "更新正在进行中，请勿重复操作")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "apply_update_failed", "更新失败: "+err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, res)
 	}
 }
 

@@ -52,3 +52,22 @@ export interface TabItem {
   previewKind: PreviewKind
   pinned?: boolean
 }
+
+export interface UpdateCheckResponse {
+  currentVersion: string
+  latestVersion: string
+  hasUpdate: boolean
+  releaseNotes: string
+  publishedAt: string
+  releaseUrl: string
+  assetName: string
+  assetSize: number
+  canAutoUpdate: boolean
+  reason?: string
+}
+
+export interface UpdateApplyResponse {
+  status: 'success' | 'error'
+  message: string
+  targetVersion: string
+}

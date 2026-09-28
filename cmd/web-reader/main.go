@@ -9,7 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -20,10 +22,17 @@ import (
 	"web_reader/internal/config"
 	workspacefs "web_reader/internal/filesystem"
 	"web_reader/internal/server"
+	"web_reader/internal/updater"
+	"web_reader/internal/version"
 	"web_reader/internal/webui"
 )
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "-version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Printf("web-reader %s\n", version.Get())
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "hash-password" {
 		fmt.Fprint(os.Stderr, "Password: ")
 		if err := hashPassword(os.Stdin, os.Stdout); err != nil {
@@ -55,6 +64,41 @@ func runServer(args []string) error {
 
 	sessions := auth.NewStore(cfg.SessionTTL, cfg.SecureCookie)
 	authHandler := auth.NewHandler(cfg.Username, cfg.PasswordHash, sessions, auth.NewLoginLimiter(10, time.Minute))
+
+	var srvRef *http.Server
+	restartTrigger := func() {
+		go func() {
+			slog.Info("preparing to restart server after update...")
+			time.Sleep(1 * time.Second)
+			if srvRef != nil {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_ = srvRef.Shutdown(shutdownCtx)
+				cancel()
+			}
+			exePath, err := os.Executable()
+			if err != nil {
+				slog.Error("failed to find executable for restart", "error", err)
+				os.Exit(1)
+			}
+			exePath, err = filepath.EvalSymlinks(exePath)
+			if err != nil {
+				slog.Error("failed to resolve executable symlink", "error", err)
+				os.Exit(1)
+			}
+			cmd := exec.Command(exePath, os.Args[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Env = os.Environ()
+			updater.SetupDetachedProcess(cmd)
+			if err := cmd.Start(); err != nil {
+				slog.Error("failed to start new process after update", "error", err)
+				return
+			}
+			slog.Info("new process started, exiting current process", "pid", cmd.Process.Pid)
+			os.Exit(0)
+		}()
+	}
+
 	app := server.New(server.Config{
 		AppConfig:       cfg,
 		Auth:            authHandler,
@@ -62,7 +106,9 @@ func runServer(args []string) error {
 		Files:           files,
 		Assets:          assets,
 		TerminalEnabled: config.LoadSavedTerminalEnabled(),
+		RestartTrigger:  restartTrigger,
 	})
+	srvRef = app.HTTPServer()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

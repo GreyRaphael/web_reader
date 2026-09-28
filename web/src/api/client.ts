@@ -1,5 +1,5 @@
 import type { FileListResponse, FileMetaResponse, SessionResponse, TextResponse } from './types'
-import type { SettingsResponse } from './types'
+import type { SettingsResponse, UpdateCheckResponse, UpdateApplyResponse } from './types'
 import type { BrowseResponse } from './types'
 
 export const AUTH_EXPIRED_EVENT = 'web-reader:auth-expired'
@@ -187,4 +187,30 @@ export async function moveFile(path: string, targetDir: string): Promise<FileMet
 export async function saveTextFile(path: string, content: string): Promise<FileMetaResponse> {
   const buffer = new TextEncoder().encode(content).buffer
   return uploadFile(path, buffer)
+}
+
+export async function checkUpdate(): Promise<UpdateCheckResponse> {
+  return request<UpdateCheckResponse>(apiUrl('/update/check'))
+}
+
+export async function applyUpdate(): Promise<UpdateApplyResponse> {
+  return request<UpdateApplyResponse>(apiUrl('/update/apply'), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
+    const resp = await fetch('/healthz', {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+    clearTimeout(timer)
+    return resp.ok
+  } catch {
+    return false
+  }
 }

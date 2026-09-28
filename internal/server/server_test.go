@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"web_reader/internal/auth"
 	"web_reader/internal/config"
 	workspacefs "web_reader/internal/filesystem"
+	"web_reader/internal/updater"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -461,5 +463,79 @@ func TestTerminalCSWSHProtection(t *testing.T) {
 	handler.ServeHTTP(recCrossSite, reqCrossSite)
 	if recCrossSite.Code != http.StatusForbidden {
 		t.Fatalf("terminal with evil origin got %d, want 403 Forbidden", recCrossSite.Code)
+	}
+}
+
+func TestUpdateRoutesAuthentication(t *testing.T) {
+	handler := newTestServer(t).Handler()
+
+	// Unauthenticated GET /api/update/check should return 401
+	req := httptest.NewRequest(http.MethodGet, "/api/update/check", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated /api/update/check expected 401, got %d", rec.Code)
+	}
+
+	// Unauthenticated POST /api/update/apply with origin should return 401
+	reqApply := httptest.NewRequest(http.MethodPost, "/api/update/apply", nil)
+	reqApply.Header.Set("Origin", "http://example.com")
+	recApply := httptest.NewRecorder()
+	handler.ServeHTTP(recApply, reqApply)
+	if recApply.Code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated /api/update/apply expected 401, got %d", recApply.Code)
+	}
+}
+
+func TestUpdateRoutes_Authorized(t *testing.T) {
+	mockGH := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"tag_name":     "v1.7.2",
+			"body":         "test notes",
+			"published_at": "2026-09-28T12:00:00Z",
+			"html_url":     "https://github.com/GreyRaphael/web_reader/releases/tag/v1.7.2",
+			"assets":       []any{},
+		})
+	}))
+	defer mockGH.Close()
+
+	updSvc := updater.NewService("v1.7.1",
+		updater.WithAPIBaseURL(mockGH.URL),
+		updater.WithHTTPClient(mockGH.Client()),
+	)
+
+	root := t.TempDir()
+	files, _ := workspacefs.New(root, 1<<20)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("reader-test"), 10)
+	sessions := auth.NewStore(time.Hour, false)
+	authHandler := auth.NewHandler("admin", hash, sessions, auth.NewLoginLimiter(20, time.Minute))
+	assets := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`<!doctype html><div id="app"></div>`)},
+	}
+	srv := New(Config{
+		AppConfig: config.Config{Addr: "127.0.0.1:0"},
+		Auth:      authHandler,
+		Sessions:  sessions,
+		Files:     files,
+		Assets:    fs.FS(assets),
+		Updater:   updSvc,
+	})
+	handler := srv.Handler()
+	cookie := loginCookie(t, handler)
+
+	// Authorized GET /api/update/check
+	req := authenticatedRequest(http.MethodGet, "/api/update/check", cookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /api/update/check, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var res updater.CheckResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatalf("decode check response failed: %v", err)
+	}
+	if res.LatestVersion != "v1.7.2" {
+		t.Errorf("expected LatestVersion=v1.7.2, got %s", res.LatestVersion)
 	}
 }

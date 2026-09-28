@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getSettings, getWorkspace, setWorkspace, setSettings } from '@/api/client'
+import {
+  getSettings,
+  getWorkspace,
+  setWorkspace,
+  setSettings,
+  checkUpdate,
+  applyUpdate,
+  checkHealth,
+} from '@/api/client'
+import type { UpdateCheckResponse } from '@/api/types'
 import { iconSvg } from '@/utils/icons'
 import PathBrowser from './PathBrowser.vue'
 
@@ -24,6 +33,101 @@ const enableTerminal = ref(true)
 const terminalSaving = ref(false)
 
 const showBrowser = ref(false)
+
+// Version & Update state
+const updateInfo = ref<UpdateCheckResponse | null>(null)
+const checkingUpdate = ref(false)
+const updating = ref(false)
+const updateError = ref('')
+const updateSuccess = ref('')
+const restarting = ref(false)
+const showReleaseNotes = ref(false)
+const showConfirmModal = ref(false)
+let healthPollTimer: ReturnType<typeof setInterval> | null = null
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+}
+
+function formatDate(isoStr: string): string {
+  if (!isoStr) return ''
+  try {
+    const d = new Date(isoStr)
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  } catch {
+    return isoStr
+  }
+}
+
+async function handleCheckUpdate() {
+  checkingUpdate.value = true
+  updateError.value = ''
+  updateSuccess.value = ''
+  showConfirmModal.value = false
+  try {
+    const res = await checkUpdate()
+    updateInfo.value = res
+  } catch (err) {
+    updateError.value = err instanceof Error ? err.message : '检查更新失败'
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+
+function confirmApplyUpdate() {
+  showConfirmModal.value = true
+}
+
+async function handleApplyUpdate() {
+  showConfirmModal.value = false
+  updating.value = true
+  updateError.value = ''
+  updateSuccess.value = ''
+  try {
+    const res = await applyUpdate()
+    updateSuccess.value = res.message || '更新成功，服务正在重启...'
+    startRestartHealthPolling()
+  } catch (err) {
+    updateError.value = err instanceof Error ? err.message : '自动更新失败'
+    updating.value = false
+  }
+}
+
+function startRestartHealthPolling() {
+  restarting.value = true
+  let attempts = 0
+  const maxAttempts = 30
+
+  setTimeout(() => {
+    healthPollTimer = setInterval(async () => {
+      attempts++
+      const ok = await checkHealth()
+      if (ok) {
+        if (healthPollTimer) {
+          clearInterval(healthPollTimer)
+          healthPollTimer = null
+        }
+        updateSuccess.value = '新版本服务已就绪，正在刷新页面...'
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.location.reload()
+          }
+        }, 600)
+      } else if (attempts >= maxAttempts) {
+        if (healthPollTimer) {
+          clearInterval(healthPollTimer)
+          healthPollTimer = null
+        }
+        restarting.value = false
+        updating.value = false
+        updateError.value = '服务重启探测超时，请检查终端日志或手动刷新页面。'
+      }
+    }, 1500)
+  }, 2000)
+}
 
 function handleBrowserSelect(path: string) {
   workspace.value = path
@@ -100,6 +204,9 @@ async function handleSave() {
 }
 
 function closeDialog(): void {
+  if (updating.value || restarting.value) {
+    return
+  }
   emit('close')
 }
 
@@ -119,6 +226,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (healthPollTimer) {
+    clearInterval(healthPollTimer)
+    healthPollTimer = null
+  }
   previouslyFocused?.focus()
 })
 </script>
@@ -210,12 +321,157 @@ onBeforeUnmount(() => {
             type="button"
             role="switch"
             :aria-checked="enableTerminal"
-            :disabled="terminalSaving"
+            :disabled="terminalSaving || updating || restarting"
             :class="{ on: enableTerminal }"
             @click="toggleTerminal"
           >
             <span class="toggle-knob"></span>
           </button>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="version-update-section">
+          <div class="section-header-row">
+            <div>
+              <label class="form-label">版本与更新 (Version & Update)</label>
+              <p class="form-help">检查 GitHub 最新发布版本并支持一键更新。</p>
+            </div>
+            <div class="version-badge-group">
+              <span class="version-badge current">
+                {{ updateInfo?.currentVersion || 'v1.8.0' }}
+              </span>
+              <button
+                class="button secondary-button compact-btn check-update-btn"
+                type="button"
+                :disabled="checkingUpdate || updating || restarting"
+                @click="handleCheckUpdate"
+              >
+                <span v-if="checkingUpdate" class="spinner-sm"></span>
+                {{ checkingUpdate ? '检查中…' : '检查更新' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 检查结果卡片 -->
+          <div
+            v-if="updateInfo"
+            class="update-card"
+            :class="{ 'has-update': updateInfo.hasUpdate }"
+          >
+            <div v-if="!updateInfo.hasUpdate" class="update-status-row latest">
+              <span class="status-icon">✓</span>
+              <span>当前已是最新版本 ({{ updateInfo.currentVersion }})</span>
+            </div>
+
+            <div v-else class="update-details">
+              <div class="update-title-row">
+                <div class="update-title">
+                  <span class="new-tag">发现新版本</span>
+                  <strong class="latest-version-name">{{ updateInfo.latestVersion }}</strong>
+                </div>
+                <span v-if="updateInfo.publishedAt" class="update-date">
+                  发布于 {{ formatDate(updateInfo.publishedAt) }}
+                </span>
+              </div>
+
+              <div v-if="updateInfo.assetSize" class="update-meta">
+                安装包大小：{{ formatBytes(updateInfo.assetSize) }}
+              </div>
+
+              <!-- Release Notes 展开/折叠 -->
+              <div v-if="updateInfo.releaseNotes" class="release-notes-box">
+                <button
+                  type="button"
+                  class="notes-toggle-btn"
+                  @click="showReleaseNotes = !showReleaseNotes"
+                >
+                  {{ showReleaseNotes ? '收起更新日志 ▲' : '查看更新日志 ▼' }}
+                </button>
+                <pre v-if="showReleaseNotes" class="release-notes-content">{{
+                  updateInfo.releaseNotes
+                }}</pre>
+              </div>
+
+              <!-- 不支持自动更新提示 -->
+              <div v-if="!updateInfo.canAutoUpdate" class="auto-update-warning">
+                <span class="warn-icon">⚠️</span>
+                <span>{{ updateInfo.reason || '当前环境不支持自动更新' }}</span>
+                <a
+                  v-if="updateInfo.releaseUrl"
+                  :href="updateInfo.releaseUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="github-link"
+                >
+                  前往 GitHub 手动下载 ↗
+                </a>
+              </div>
+
+              <!-- 二次确认栏 -->
+              <div
+                v-if="showConfirmModal && updateInfo.canAutoUpdate"
+                class="confirm-update-banner"
+              >
+                <span>确认下载并自动替换当前运行版本？服务将在更新完成后自动重启。</span>
+                <div class="confirm-btn-group">
+                  <button
+                    class="button secondary-button compact-btn"
+                    type="button"
+                    @click="showConfirmModal = false"
+                  >
+                    取消
+                  </button>
+                  <button
+                    class="button primary-button compact-btn"
+                    type="button"
+                    @click="handleApplyUpdate"
+                  >
+                    确认更新
+                  </button>
+                </div>
+              </div>
+
+              <!-- 支持自动更新操作区 -->
+              <div v-if="!showConfirmModal && updateInfo.canAutoUpdate" class="update-actions">
+                <button
+                  class="button primary-button apply-update-btn"
+                  type="button"
+                  :disabled="updating || restarting"
+                  @click="confirmApplyUpdate"
+                >
+                  <span v-if="updating" class="spinner-sm"></span>
+                  {{ updating ? '正在下载更新…' : '立即更新并重启' }}
+                </button>
+                <a
+                  v-if="updateInfo.releaseUrl"
+                  :href="updateInfo.releaseUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="button secondary-button"
+                >
+                  发布页面 ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 正在重启提示 -->
+          <div v-if="restarting" class="restart-progress-card">
+            <div class="spinner-sm"></div>
+            <div>
+              <strong>服务正在重启，请稍候…</strong>
+              <p class="restart-desc">新服务启动就绪后页面将自动刷新恢复。</p>
+            </div>
+          </div>
+
+          <!-- 更新错误与成功提示 -->
+          <div v-if="updateError" class="alert-box error" role="alert">
+            {{ updateError }}
+          </div>
+          <div v-if="updateSuccess" class="alert-box success" role="status">
+            {{ updateSuccess }}
+          </div>
         </div>
 
         <div v-if="errorMsg" class="alert-box error" role="alert">
@@ -230,7 +486,7 @@ onBeforeUnmount(() => {
         <button
           class="button secondary-button"
           type="button"
-          :disabled="saving"
+          :disabled="saving || updating || restarting"
           @click="closeDialog"
         >
           取消
@@ -238,7 +494,7 @@ onBeforeUnmount(() => {
         <button
           class="button primary-button"
           type="button"
-          :disabled="loading || saving"
+          :disabled="loading || saving || updating || restarting"
           @click="handleSave"
         >
           {{ saving ? '保存中...' : '保存更改' }}
@@ -503,5 +759,243 @@ onBeforeUnmount(() => {
 
 .secondary-button:hover:not(:disabled) {
   background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.settings-divider {
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+
+.version-update-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.version-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.compact-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.check-update-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-card {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-card.has-update {
+  border-color: var(--primary, #3b82f6);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.update-status-row.latest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-icon {
+  font-weight: bold;
+}
+
+.update-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.update-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.new-tag {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.latest-version-name {
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+.update-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.update-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.release-notes-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notes-toggle-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--primary, #2563eb);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.release-notes-content {
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.auto-update-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 6px;
+  color: #b45309;
+  font-size: 12px;
+}
+
+.github-link {
+  color: var(--primary, #2563eb);
+  text-decoration: underline;
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.confirm-update-banner {
+  padding: 10px 12px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #854d0e;
+}
+
+.confirm-btn-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.update-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.apply-update-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.restart-progress-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.restart-desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
