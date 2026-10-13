@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"web_reader/internal/config"
 )
@@ -76,26 +75,4 @@ func BrowseDirectories(raw string) (BrowseResult, error) {
 		return naturalLess(dirs[i].Name, dirs[j].Name)
 	})
 	return BrowseResult{Path: real, Dirs: dirs}, nil
-}
-
-// SplitPathSegments breaks an absolute path into breadcrumb segments. The
-// root "/" is represented as a single empty-name segment so the UI can render
-// it as a clickable root.
-func SplitPathSegments(abs string) []DirEntry {
-	clean := filepath.Clean(abs)
-	var segments []DirEntry
-	if clean == string(filepath.Separator) {
-		return []DirEntry{{Name: "/", Path: clean}}
-	}
-	cur := ""
-	for _, part := range strings.Split(clean, string(filepath.Separator)) {
-		if part == "" {
-			cur = string(filepath.Separator)
-			segments = append(segments, DirEntry{Name: "/", Path: cur})
-			continue
-		}
-		cur = filepath.Join(cur, part)
-		segments = append(segments, DirEntry{Name: part, Path: cur})
-	}
-	return segments
 }

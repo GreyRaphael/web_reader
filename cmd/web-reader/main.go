@@ -114,7 +114,7 @@ func runServer(args []string) error {
 	defer stop()
 	go sessions.RunCleanup(ctx)
 
-	httpServer := app.HTTPServer()
+	httpServer := srvRef
 	serveErr := make(chan error, 1)
 	go func() {
 		slog.Info("web reader starting", "addr", cfg.Addr, "workspace", cfg.Workspace, "admin_user", cfg.Username)
