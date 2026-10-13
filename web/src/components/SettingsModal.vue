@@ -10,6 +10,7 @@ import {
   checkHealth,
 } from '@/api/client'
 import type { UpdateCheckResponse } from '@/api/types'
+import { formatBytes } from '@/utils/format'
 import { iconSvg } from '@/utils/icons'
 import PathBrowser from './PathBrowser.vue'
 
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const workspace = ref('')
+const appVersion = __APP_VERSION__
 const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
@@ -44,13 +46,6 @@ const restarting = ref(false)
 const showReleaseNotes = ref(false)
 const showConfirmModal = ref(false)
 let healthPollTimer: ReturnType<typeof setInterval> | null = null
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
-}
 
 function formatDate(isoStr: string): string {
   if (!isoStr) return ''
@@ -339,7 +334,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="version-badge-group">
               <span class="version-badge current">
-                {{ updateInfo?.currentVersion || 'v1.8.0' }}
+                {{ updateInfo?.currentVersion || appVersion }}
               </span>
               <button
                 class="button secondary-button compact-btn check-update-btn"
