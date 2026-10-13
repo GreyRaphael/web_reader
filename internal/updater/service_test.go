@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -281,6 +282,49 @@ func TestApply_Success(t *testing.T) {
 	}
 	if string(updatedContent) != string(newBinaryContent) {
 		t.Errorf("executable content mismatch: expected %q, got %q", string(newBinaryContent), string(updatedContent))
+	}
+}
+
+// TestApply_NoUpdate verifies Apply refuses to reinstall when the current
+// version is already up to date, returning ErrNoUpdateFound.
+func TestApply_NoUpdate(t *testing.T) {
+	tempDir := t.TempDir()
+	binName := "web-reader"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	fakeExe := filepath.Join(tempDir, binName)
+	if err := os.WriteFile(fakeExe, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	assetName := fmt.Sprintf("web-reader-v1.7.1-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		assetName = fmt.Sprintf("web-reader-v1.7.1-%s-%s.zip", runtime.GOOS, runtime.GOARCH)
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(gitHubRelease{
+			TagName: "v1.7.1",
+			Assets:  []gitHubAsset{{Name: assetName, BrowserDownloadURL: "/download/asset"}},
+		})
+	}))
+	defer ts.Close()
+
+	svc := NewService("v1.7.1",
+		WithAPIBaseURL(ts.URL),
+		WithHTTPClient(ts.Client()),
+		WithExecutablePathFunc(func() (string, error) {
+			return fakeExe, nil
+		}),
+	)
+
+	_, err := svc.Apply(context.Background(), nil)
+	if !errors.Is(err, ErrNoUpdateFound) {
+		t.Fatalf("Apply with no newer version = %v, want ErrNoUpdateFound", err)
+	}
+	content, _ := os.ReadFile(fakeExe)
+	if string(content) != "current-binary" {
+		t.Errorf("binary must remain untouched when no update is available")
 	}
 }
 

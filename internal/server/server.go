@@ -10,20 +10,20 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"web_reader/internal/auth"
 	"web_reader/internal/config"
 	workspacefs "web_reader/internal/filesystem"
+	"web_reader/internal/httputil"
 	"web_reader/internal/terminal"
 	"web_reader/internal/updater"
 	"web_reader/internal/version"
 )
 
 type Server struct {
-	config          Config
-	http            *http.Server
-	terminalEnabled *bool
+	http *http.Server
 }
 
 type Config struct {
@@ -38,7 +38,8 @@ type Config struct {
 }
 
 func New(cfg Config) *Server {
-	terminalEnabled := cfg.TerminalEnabled
+	var terminalEnabled atomic.Bool
+	terminalEnabled.Store(cfg.TerminalEnabled)
 	updaterSvc := cfg.Updater
 	if updaterSvc == nil {
 		updaterSvc = updater.NewService(version.Get())
@@ -80,8 +81,6 @@ func New(cfg Config) *Server {
 		handler = securityHeadersWithHSTS(recoverPanic(requestLogger(csrfProtection(mux))))
 	}
 	return &Server{
-		config:          cfg,
-		terminalEnabled: &terminalEnabled,
 		http: &http.Server{
 			Addr:              cfg.AppConfig.Addr,
 			Handler:           handler,
@@ -141,13 +140,13 @@ func browseHandler() http.HandlerFunc {
 	}
 }
 
-func terminalHandler(service *workspacefs.Service, enabled *bool) http.Handler {
+func terminalHandler(service *workspacefs.Service, enabled *atomic.Bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !*enabled {
+		if !enabled.Load() {
 			writeError(w, http.StatusNotFound, "terminal_disabled", "Terminal is disabled in settings")
 			return
 		}
-		if !requireSameOrigin(r) {
+		if !httputil.RequireSameOrigin(r) {
 			writeError(w, http.StatusForbidden, "invalid_origin", "Request origin is not allowed")
 			return
 		}
@@ -155,15 +154,15 @@ func terminalHandler(service *workspacefs.Service, enabled *bool) http.Handler {
 	})
 }
 
-func getSettingsHandler(enabled *bool) http.HandlerFunc {
+func getSettingsHandler(enabled *atomic.Bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{
-			"enableTerminal": *enabled,
+			"enableTerminal": enabled.Load(),
 		})
 	}
 }
 
-func setSettingsHandler(enabled *bool) http.HandlerFunc {
+func setSettingsHandler(enabled *atomic.Bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			EnableTerminal *bool `json:"enableTerminal"`
@@ -173,7 +172,7 @@ func setSettingsHandler(enabled *bool) http.HandlerFunc {
 			return
 		}
 		if req.EnableTerminal != nil {
-			*enabled = *req.EnableTerminal
+			enabled.Store(*req.EnableTerminal)
 			if err := config.SaveTerminalSetting(*req.EnableTerminal); err != nil {
 				slog.Warn("save terminal setting failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "save_failed", "Failed to save setting")
@@ -181,7 +180,7 @@ func setSettingsHandler(enabled *bool) http.HandlerFunc {
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{
-			"enableTerminal": *enabled,
+			"enableTerminal": enabled.Load(),
 		})
 	}
 }
@@ -205,6 +204,10 @@ func applyUpdateHandler(svc *updater.Service, restartTrigger func()) http.Handle
 			slog.Error("apply update failed", "error", err)
 			if errors.Is(err, updater.ErrUpdateInProgress) {
 				writeError(w, http.StatusConflict, "update_in_progress", "更新正在进行中，请勿重复操作")
+				return
+			}
+			if errors.Is(err, updater.ErrNoUpdateFound) {
+				writeError(w, http.StatusConflict, "no_update", "当前已是最新版本，无需更新")
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "apply_update_failed", "更新失败: "+err.Error())
@@ -424,8 +427,8 @@ func eventsHandler(service *workspacefs.Service) http.HandlerFunc {
 			return
 		}
 
-		ch := service.Events.Subscribe()
-		defer service.Events.Unsubscribe(ch)
+		ch := service.SubscribeEvents()
+		defer service.UnsubscribeEvents(ch)
 
 		for {
 			select {

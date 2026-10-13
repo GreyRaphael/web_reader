@@ -164,6 +164,9 @@ func (s *Service) Apply(ctx context.Context, onRestart func()) (*ApplyResult, er
 	if !checkRes.CanAutoUpdate {
 		return nil, errors.New("cannot auto update: " + checkRes.Reason)
 	}
+	if !checkRes.HasUpdate {
+		return nil, ErrNoUpdateFound
+	}
 
 	release, err := s.fetchLatestRelease(ctx)
 	if err != nil {
