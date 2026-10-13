@@ -13,6 +13,7 @@ import {
   zipUrl,
 } from '@/api/client'
 import type { FsItem } from '@/api/types'
+import { copyToClipboard } from '@/utils/clipboard'
 import { iconSvg, fileIconName } from '@/utils/icons'
 import { resolveAbsolutePath } from '@/utils/path'
 import { sortFileItems } from '@/utils/sort'
@@ -71,7 +72,7 @@ async function loadDir(dir: string): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   currentDir.value = dir
-  if (dir === currentDir.value || !workingDir.value) workingDir.value = dir
+  workingDir.value = dir
   buildBreadcrumb(dir)
   try {
     const response = await listDirectory(dir, controller.signal)
@@ -175,6 +176,29 @@ async function handleCreateDir(): Promise<void> {
 
 function handleUploadClick(): void {
   fileInput.value?.click()
+}
+
+async function ensureWorkspaceRoot(): Promise<string> {
+  if (!workspaceRoot.value) {
+    try {
+      const res = await getWorkspace()
+      workspaceRoot.value = res.workspace
+    } catch {
+      return ''
+    }
+  }
+  return workspaceRoot.value
+}
+
+async function copyAbsolutePath(relPath: string): Promise<void> {
+  const root = await ensureWorkspaceRoot()
+  if (!root) return
+  await copyToClipboard(resolveAbsolutePath(root, relPath))
+}
+
+async function copyWorkspaceRoot(): Promise<void> {
+  const root = await ensureWorkspaceRoot()
+  if (root) await copyToClipboard(root)
 }
 
 const uploadQueue = ref<File[]>([])
@@ -337,31 +361,12 @@ function buildContextMenu(target: FsItem, event: MouseEvent): void {
     {
       label: '复制绝对路径',
       icon: 'copy',
-      action: async () => {
-        try {
-          let root = workspaceRoot.value
-          if (!root) {
-            const res = await getWorkspace()
-            root = res.workspace
-            workspaceRoot.value = root
-          }
-          const absPath = resolveAbsolutePath(root, target.path)
-          await navigator.clipboard.writeText(absPath)
-        } catch {
-          // clipboard API unavailable
-        }
-      },
+      action: () => copyAbsolutePath(target.path),
     },
     {
       label: '复制相对路径',
       icon: 'link',
-      action: async () => {
-        try {
-          await navigator.clipboard.writeText(target.path)
-        } catch {
-          // clipboard API unavailable
-        }
-      },
+      action: () => copyToClipboard(target.path),
     },
     {
       label: target.kind === 'directory' ? '下载 ZIP' : '下载',
@@ -399,19 +404,7 @@ function handleBreadcrumbContextMenu(
       {
         label: '复制工作区绝对路径',
         icon: 'copy',
-        action: async () => {
-          try {
-            let root = workspaceRoot.value
-            if (!root) {
-              const res = await getWorkspace()
-              root = res.workspace
-              workspaceRoot.value = root
-            }
-            if (root) await navigator.clipboard.writeText(root)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyWorkspaceRoot(),
       },
       { label: '', action: () => {}, separator: true },
       {
@@ -442,31 +435,12 @@ function handleBreadcrumbContextMenu(
       {
         label: '复制绝对路径',
         icon: 'copy',
-        action: async () => {
-          try {
-            let root = workspaceRoot.value
-            if (!root) {
-              const res = await getWorkspace()
-              root = res.workspace
-              workspaceRoot.value = root
-            }
-            const absPath = resolveAbsolutePath(root, crumb.path)
-            await navigator.clipboard.writeText(absPath)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyAbsolutePath(crumb.path),
       },
       {
         label: '复制相对路径',
         icon: 'link',
-        action: async () => {
-          try {
-            await navigator.clipboard.writeText(crumb.path)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyToClipboard(crumb.path),
       },
       { label: '', action: () => {}, separator: true },
       {
@@ -527,19 +501,7 @@ function buildBlankContextMenu(event: MouseEvent): void {
       {
         label: '复制工作区绝对路径',
         icon: 'copy',
-        action: async () => {
-          try {
-            let root = workspaceRoot.value
-            if (!root) {
-              const res = await getWorkspace()
-              root = res.workspace
-              workspaceRoot.value = root
-            }
-            if (root) await navigator.clipboard.writeText(root)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyWorkspaceRoot(),
       },
     )
   } else {
@@ -547,31 +509,12 @@ function buildBlankContextMenu(event: MouseEvent): void {
       {
         label: '复制绝对路径',
         icon: 'copy',
-        action: async () => {
-          try {
-            let root = workspaceRoot.value
-            if (!root) {
-              const res = await getWorkspace()
-              root = res.workspace
-              workspaceRoot.value = root
-            }
-            const absPath = resolveAbsolutePath(root, dir)
-            await navigator.clipboard.writeText(absPath)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyAbsolutePath(dir),
       },
       {
         label: '复制相对路径',
         icon: 'link',
-        action: async () => {
-          try {
-            await navigator.clipboard.writeText(dir)
-          } catch {
-            // clipboard unavailable
-          }
-        },
+        action: () => copyToClipboard(dir),
       },
     )
   }

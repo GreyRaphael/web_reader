@@ -90,7 +90,7 @@ describe('SettingsModal - Version and Update', () => {
 
     expect(wrapper.find('.new-tag').text()).toBe('发现新版本')
     expect(wrapper.find('.latest-version-name').text()).toBe('v1.7.2')
-    expect(wrapper.find('.update-meta').text()).toContain('15.0 MB')
+    expect(wrapper.find('.update-meta').text()).toContain('15 MB')
 
     // Release notes toggle
     expect(wrapper.find('.release-notes-content').exists()).toBe(false)

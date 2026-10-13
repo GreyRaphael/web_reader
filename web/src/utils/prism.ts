@@ -1,4 +1,5 @@
 import Prism from 'prismjs'
+import { escapeHtml } from '@/utils/escape'
 
 // Import autoloader plugin
 import 'prismjs/plugins/autoloader/prism-autoloader'
@@ -90,8 +91,3 @@ export function highlightCode(code: string, lang: string): string {
   // Fallback to HTML escaped text
   return escapeHtml(code)
 }
-
-import { escapeHtml } from '@/utils/escape'
-
-export { escapeHtml }
-export default Prism

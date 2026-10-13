@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import type { TabItem } from '@/api/types'
-import { iconSvg } from '@/utils/icons'
+import { copyToClipboard } from '@/utils/clipboard'
+import { iconSvg, fileIconName } from '@/utils/icons'
 import { resolveAbsolutePath } from '@/utils/path'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
@@ -26,19 +27,6 @@ const emit = defineEmits<{
 const tabsContainer = ref<HTMLElement | null>(null)
 const contextMenu = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
 const moreMenuOpen = ref(false)
-
-function tabIcon(previewKind: string): string {
-  switch (previewKind) {
-    case 'markdown':
-      return 'file-code'
-    case 'image':
-      return 'image'
-    case 'text':
-      return 'file-text'
-    default:
-      return 'file'
-  }
-}
 
 function handleTabClick(tab: TabItem): void {
   emit('select', tab.path)
@@ -92,25 +80,12 @@ function handleTabContextMenu(tab: TabItem, event: MouseEvent): void {
     {
       label: '复制相对路径',
       icon: 'link',
-      action: async () => {
-        try {
-          await navigator.clipboard.writeText(tab.path)
-        } catch {
-          // clipboard API unavailable
-        }
-      },
+      action: () => copyToClipboard(tab.path),
     },
     {
       label: '复制绝对路径',
       icon: 'copy',
-      action: async () => {
-        try {
-          const abs = resolveAbsolutePath(props.workspaceRoot, tab.path)
-          await navigator.clipboard.writeText(abs)
-        } catch {
-          // clipboard API unavailable
-        }
-      },
+      action: () => copyToClipboard(resolveAbsolutePath(props.workspaceRoot, tab.path)),
     },
   ]
   contextMenu.value = { x: event.clientX, y: event.clientY, items }
@@ -197,7 +172,7 @@ watch(
         <span
           class="tab-icon"
           aria-hidden="true"
-          v-html="iconSvg(tabIcon(tab.previewKind), 13)"
+          v-html="iconSvg(fileIconName({ kind: 'file', previewKind: tab.previewKind }), 13)"
         ></span>
         <span class="tab-title">{{ tab.name }}</span>
         <span

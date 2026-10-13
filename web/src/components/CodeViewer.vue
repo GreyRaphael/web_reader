@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ICON_PATHS, iconSvg } from '@/utils/icons'
-import { escapeHtml, getLanguageFromPath, highlightCode } from '@/utils/prism'
+import { escapeHtml } from '@/utils/escape'
+import { getLanguageFromPath, highlightCode } from '@/utils/prism'
 import { storedBoolean } from '@/utils/storage'
+import { createTimerRegistry } from '@/utils/timers'
 
 const props = defineProps<{
   content: string
@@ -18,16 +20,8 @@ const copied = ref(false)
 const isHighlighting = ref(false)
 const highlightedHtml = ref('')
 const isWordWrap = ref(storedBoolean(WORD_WRAP_KEY, false))
-const pendingTimers = new Set<number>()
-
-function scheduleTimeout(fn: () => void, delay: number): number {
-  const id = window.setTimeout(() => {
-    pendingTimers.delete(id)
-    fn()
-  }, delay)
-  pendingTimers.add(id)
-  return id
-}
+const timers = createTimerRegistry()
+const scheduleTimeout = timers.schedule
 
 const language = computed(() => getLanguageFromPath(props.path))
 const languageBadge = computed(() => {
@@ -98,8 +92,7 @@ async function copyCode(): Promise<void> {
 }
 
 onBeforeUnmount(() => {
-  for (const id of pendingTimers) clearTimeout(id)
-  pendingTimers.clear()
+  timers.cancelAll()
 })
 </script>
 

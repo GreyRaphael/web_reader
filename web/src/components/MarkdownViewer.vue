@@ -8,6 +8,7 @@ import { ICON_PATHS, iconSvg } from '@/utils/icons'
 import type { ResolvedTheme } from '@/composables/useTheme'
 import { renderMarkdown, type MarkdownHeading, type RenderedMarkdown } from '@/markdown/render'
 import { decodeFragment } from '@/utils/path'
+import { createTimerRegistry } from '@/utils/timers'
 import MarkdownEditor from './MarkdownEditor.vue'
 
 type ViewMode = 'preview' | 'edit' | 'split'
@@ -98,16 +99,8 @@ const popoverText = ref('')
 const popoverIsError = ref(false)
 const popoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 let popoverTimer: number | null = null
-const pendingTimers = new Set<number>()
-
-function scheduleTimeout(fn: () => void, delay: number): number {
-  const id = window.setTimeout(() => {
-    pendingTimers.delete(id)
-    fn()
-  }, delay)
-  pendingTimers.add(id)
-  return id
-}
+const timers = createTimerRegistry()
+const scheduleTimeout = timers.schedule
 
 let debounceRenderTimer: number | null = null
 function debounceRender(sourceText: string, delay = 200): void {
@@ -131,8 +124,7 @@ function showContextualToast(btn: HTMLButtonElement, message: string, isError = 
   }
 
   if (popoverTimer) {
-    clearTimeout(popoverTimer)
-    pendingTimers.delete(popoverTimer)
+    timers.cancel(popoverTimer)
   }
   popoverText.value = message
   popoverIsError.value = isError
@@ -943,12 +935,8 @@ onBeforeUnmount(() => {
   removeScrollSpy()
   cleanupPanzoom()
   closeFullscreen()
-  if (popoverTimer) {
-    clearTimeout(popoverTimer)
-    popoverTimer = null
-  }
-  for (const id of pendingTimers) clearTimeout(id)
-  pendingTimers.clear()
+  popoverTimer = null
+  timers.cancelAll()
 })
 </script>
 
