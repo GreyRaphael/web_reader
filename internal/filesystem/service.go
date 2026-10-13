@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -54,19 +53,29 @@ type Service struct {
 	mu          sync.RWMutex
 	root        string
 	maxTextSize int64
-	Events      *EventBus
+	events      *EventBus
 	stopWatcher func()
 }
 
 func New(root string, maxTextSize int64) (*Service, error) {
 	svc := &Service{
 		maxTextSize: maxTextSize,
-		Events:      NewEventBus(),
+		events:      NewEventBus(),
 	}
 	if _, err := svc.SetRoot(root); err != nil {
 		return nil, err
 	}
 	return svc, nil
+}
+
+// SubscribeEvents registers a listener for filesystem change events.
+func (s *Service) SubscribeEvents() chan Event {
+	return s.events.Subscribe()
+}
+
+// UnsubscribeEvents removes a listener previously returned by SubscribeEvents.
+func (s *Service) UnsubscribeEvents(ch chan Event) {
+	s.events.Unsubscribe(ch)
 }
 
 func (s *Service) GetRoot() string {
@@ -76,52 +85,17 @@ func (s *Service) GetRoot() string {
 }
 
 func (s *Service) SetRoot(newRoot string) (string, error) {
-	newRoot = strings.TrimSpace(newRoot)
-	if newRoot == "" {
-		return "", errors.New("path cannot be empty")
-	}
-	if newRoot == "~" || strings.HasPrefix(newRoot, "~/") || strings.HasPrefix(newRoot, "~\\") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home directory: %w", err)
-		}
-		if newRoot == "~" {
-			newRoot = home
-		} else {
-			newRoot = filepath.Join(home, newRoot[2:])
-		}
-	}
-	root, err := filepath.Abs(newRoot)
+	clean, err := config.ResolveWorkspaceDir(newRoot)
 	if err != nil {
-		return "", fmt.Errorf("resolve workspace: %w", err)
+		return "", err
 	}
-	if _, statErr := os.Stat(root); os.IsNotExist(statErr) {
-		if mkdirErr := os.MkdirAll(root, 0755); mkdirErr != nil {
-			return "", fmt.Errorf("create workspace directory: %w", mkdirErr)
-		}
-	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return "", fmt.Errorf("resolve workspace symlinks: %w", err)
-	}
-	if config.IsSensitiveSystemPath(realRoot) {
-		return "", fmt.Errorf("workspace %q is a sensitive system directory", realRoot)
-	}
-	info, err := os.Stat(realRoot)
-	if err != nil {
-		return "", fmt.Errorf("stat workspace: %w", err)
-	}
-	if !info.IsDir() {
-		return "", errors.New("workspace must be a directory")
-	}
-	clean := filepath.Clean(realRoot)
 	s.mu.Lock()
 	s.root = clean
 	if s.stopWatcher != nil {
 		s.stopWatcher()
 		s.stopWatcher = nil
 	}
-	if stop, err := startWatcher(clean, s.Events); err == nil {
+	if stop, err := startWatcher(clean, s.events); err == nil {
 		s.stopWatcher = stop
 	}
 	s.mu.Unlock()
@@ -323,25 +297,12 @@ func (s *Service) createEntry(relative string, isDir bool) (Item, error) {
 	if base == "" || base == "." || base == ".." {
 		return Item{}, ErrInvalidPath
 	}
-	parentDir := path.Dir(cleaned)
-	fullParent, _, err := s.Resolve(parentDir)
+	// Resolve already returns a symlink-resolved, workspace-contained parent.
+	fullParent, _, err := s.Resolve(path.Dir(cleaned))
 	if err != nil {
 		return Item{}, err
 	}
-	root := s.GetRoot()
 	fullPath := filepath.Join(fullParent, base)
-	real, err := filepath.EvalSymlinks(fullParent)
-	if err != nil {
-		return Item{}, err
-	}
-	real, err = filepath.Abs(real)
-	if err != nil {
-		return Item{}, err
-	}
-	relToRoot, err := filepath.Rel(root, real)
-	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
-		return Item{}, ErrOutsideRoot
-	}
 	if _, err := os.Stat(fullPath); err == nil {
 		return Item{}, ErrAlreadyExists
 	}
@@ -462,25 +423,12 @@ func (s *Service) SaveUpload(relative string, body io.Reader) (Item, error) {
 	if base == "" || base == "." || base == ".." {
 		return Item{}, ErrInvalidPath
 	}
-	parentDir := path.Dir(cleaned)
-	fullParent, _, err := s.Resolve(parentDir)
+	// Resolve already returns a symlink-resolved, workspace-contained parent.
+	fullParent, _, err := s.Resolve(path.Dir(cleaned))
 	if err != nil {
 		return Item{}, err
 	}
 	fullPath := filepath.Join(fullParent, base)
-	real, err := filepath.EvalSymlinks(fullParent)
-	if err != nil {
-		return Item{}, err
-	}
-	real, err = filepath.Abs(real)
-	if err != nil {
-		return Item{}, err
-	}
-	root := s.GetRoot()
-	relToRoot, err := filepath.Rel(root, real)
-	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) || filepath.IsAbs(relToRoot) {
-		return Item{}, ErrOutsideRoot
-	}
 	if lInfo, lErr := os.Lstat(fullPath); lErr == nil {
 		if lInfo.Mode()&os.ModeSymlink != 0 {
 			return Item{}, ErrOutsideRoot
