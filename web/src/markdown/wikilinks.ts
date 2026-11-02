@@ -51,7 +51,7 @@ export function wikiLinksPlugin(md: MarkdownIt, currentPath: string): void {
         label = rawContent
       }
 
-      let targetPath = ''
+      let targetPath: string
       if (targetDoc) {
         let resolvedDoc = targetDoc
         if (!resolvedDoc.endsWith('.md') && !resolvedDoc.includes('.')) {
